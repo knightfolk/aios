@@ -1,0 +1,11 @@
+{
+  "providerID": "zai",
+  "endpoint": "https://api.z.ai/api/paas/v4/",
+  "protocolKind": "OPENAI_COMPATIBLE",
+  "models": [],
+  "billingMode": "PAY_AS_YOU_GO",
+  "quotaWindows": [],
+  "rateLimitRPM": 0,
+  "privacyNotes": "placeholder",
+  "lastVerifiedAt": 0
+}

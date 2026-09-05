@@ -1,0 +1,12 @@
+{
+  "profileID": "default-v1",
+  "schemaVersion": 1,
+  "systemPrompt": "placeholder",
+  "outputContractJSON": "{}",
+  "reasoningMode": "none",
+  "contextMaintenance": "none",
+  "preferredTopologies": ["SINGLE_AGENT"],
+  "retryRules": [],
+  "failureSignatures": [],
+  "evaluatorCompatibility": "json"
+}

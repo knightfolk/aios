@@ -4,6 +4,10 @@ import PackageDescription
 let package = Package(
     name: "AIOS",
     platforms: [.macOS(.v15)],
+    dependencies: [
+        // Pinned; the only dependency that links MLX.
+        .package(url: "https://github.com/ml-explore/mlx-swift-lm", from: "3.31.4"),
+    ],
     targets: [
         // Libraries — authoritative state, security, execution stay in separate modules.
         .target(name: "AIOSCore"),
@@ -19,17 +23,33 @@ let package = Package(
         .target(name: "EvidenceEngine", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
         .target(name: "ContextCompiler", dependencies: ["AIOSCore"]),
         .target(name: "DesktopShell", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
+
+        // Phase 2 — hybrid intelligence.
+        .target(name: "ModelRuntime", dependencies: ["AIOSCore"], resources: [
+            .copy("Resources/default-models.json"),
+            .copy("Resources/HarnessProfiles/default-v1.json"),
+        ]),
+        .target(name: "MLXRuntime", dependencies: [
+            "AIOSCore", "ModelRuntime",
+            .product(name: "MLXLLM", package: "mlx-swift-lm"),
+        ]),
+        .target(name: "CloudRuntime", dependencies: ["AIOSCore", "ModelRuntime", "SecurityKernel"], resources: [
+            .copy("Resources/zai-profile.json"),
+        ]),
         .target(name: "EvaluationEngine", dependencies: ["AIOSCore", "EventJournal"]),
 
         // Executables — workers and the app run out of the UI/host process.
         .executableTarget(name: "WorkRuntimeApp", dependencies: ["AIOSCore", "EventJournal", "DesktopShell"]),
-        .executableTarget(name: "InferenceWorker", dependencies: ["AIOSCore", "ExecutionFabric"]),
+        .executableTarget(name: "InferenceWorker", dependencies: ["AIOSCore", "ExecutionFabric", "ModelRuntime", "MLXRuntime"]),
         .executableTarget(name: "ToolWorker", dependencies: ["AIOSCore", "ExecutionFabric"]),
+        .executableTarget(name: "ModelFetch", dependencies: ["AIOSCore", "ModelRuntime", "MLXRuntime"]),
+        .executableTarget(name: "ProviderSetup", dependencies: ["AIOSCore", "ModelRuntime", "SecurityKernel", "CloudRuntime"]),
 
         // Tests
-        .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "EvidenceEngine", "EvaluationEngine", "Scheduler", "Router", "ExpertRuntime", "ContextCompiler", "DesktopShell"]),
+        .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "EvidenceEngine", "EvaluationEngine", "Scheduler", "Router", "ExpertRuntime", "ContextCompiler", "DesktopShell", "ModelRuntime", "ExecutionFabric"]),
         .testTarget(name: "RecoveryTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ExecutionFabric", "Supervisor"]),
         .testTarget(name: "SecurityTests", dependencies: ["AIOSCore", "EventJournal", "SecurityKernel", "CapabilityBroker"]),
         .testTarget(name: "IntegrationTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "SecurityKernel", "CapabilityBroker", "EvidenceEngine", "EvaluationEngine", "Supervisor", "ExecutionFabric", "Router", "ContextCompiler"]),
+        .testTarget(name: "HybridTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "SecurityKernel", "ExecutionFabric", "Supervisor", "Router", "ModelRuntime", "MLXRuntime", "CloudRuntime", "CapabilityBroker", "EvidenceEngine", "EvaluationEngine"]),
     ]
 )
