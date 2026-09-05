@@ -67,7 +67,9 @@ public struct AXAdapter: InteractionAdapter {
                 NSLocalizedDescriptionKey: "no focused element (error \(error.rawValue))",
             ])
         }
-        return element as! AXUIElement
+        // CFTypeRef from kAXFocusedUIElementAttribute is AXUIElement by
+        // contract; the compiler rejects a conditional downcast here.
+        return unsafeDowncast(element, to: AXUIElement.self)
     }
 
     private func stringAttribute(_ attribute: String, of element: AXUIElement) throws -> String {
