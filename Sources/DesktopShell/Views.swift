@@ -59,6 +59,7 @@ struct CardView: View {
 
 public struct ProjectDesktopView: View {
     @ObservedObject var model: AppModel
+    @Environment(\.colorScheme) private var colorScheme
 
     public init(model: AppModel) {
         self.model = model
@@ -66,6 +67,16 @@ public struct ProjectDesktopView: View {
 
     private var rendered: ProjectState {
         model.displayState ?? ProjectState(projectID: model.projectID)
+    }
+
+    /// Snap granularity: 1 for short journals; coarser steps keep 50k-event
+    /// journals scrubable (docs 06: scrub is a first-class surface).
+    private var scrubStep: Double {
+        let total = model.state?.lastSequence ?? 0
+        if total < 100 { return 1 }
+        if total < 1_000 { return 5 }
+        if total < 10_000 { return 25 }
+        return 100
     }
 
     public var body: some View {
@@ -93,7 +104,7 @@ public struct ProjectDesktopView: View {
                         .keyboardShortcut(.cancelAction)
                 }
                 .padding(10)
-                .background(AIOSDesign.token(.surfaceHistory), in: RoundedRectangle(cornerRadius: 8))
+                .background(AIOSDesign.historicalSurface(colorScheme), in: RoundedRectangle(cornerRadius: 8))
             }
 
             TimelineRulerView(model: model)
@@ -105,9 +116,12 @@ public struct ProjectDesktopView: View {
                         get: { Double(model.historicalState?.lastSequence ?? model.state?.lastSequence ?? 0) },
                         set: { model.enterHistorical(at: UInt64($0)) }
                     ),
-                    in: 0...Double(max(model.state?.lastSequence ?? 0, 1))
+                    in: 0...Double(max(model.state?.lastSequence ?? 0, 1)),
+                    step: scrubStep
                 )
                 .disabled(model.state == nil)
+                .accessibilityLabel("Timeline position \(scrub.sequence) of \(scrub.lastSequence)")
+                .accessibilityHint(scrub.isHistorical ? "Viewing recorded history" : "Viewing the live present")
                 Text("#\(scrub.sequence)/\(scrub.lastSequence)")
                     .font(.caption.monospaced())
                     .foregroundStyle(.tertiary)
@@ -167,6 +181,7 @@ struct DepthPanels: View {
             ))
             NotesInboxPanel(model: model)
             CheckpointsPanel(model: model, state: rendered)
+            ActivityCenterPanel(model: model, rendered: rendered)
             ForEach(ExpertTeam.permanentTeam(), id: \.identity) { expert in
                 ExpertCard(model: model, role: expert.role)
             }
@@ -208,6 +223,7 @@ struct NeedsYouPanel: View {
                         }
                         .buttonStyle(.borderedProminent)
                         .disabled((answers[entry.question] ?? "").isEmpty)
+                        .accessibilityLabel("Resolve decision: \(entry.subject)")
                     }
                 }
                 .padding(8)

@@ -85,7 +85,7 @@ public struct DesignToken: Sendable, Equatable {
 public enum AIOSDesign {
     public static let tokens: [DesignToken] = [
         .init(role: .surfaceLive, color: Color.accentColor.opacity(0.10)),
-        .init(role: .surfaceHistory, color: Color.gray.opacity(0.18)),
+        .init(role: .surfaceHistory, color: Color.brown.opacity(0.15)),
         .init(role: .surfacePanel, color: Color.primary.opacity(0.05)),
         .init(role: .accentVerified, color: .green),
         .init(role: .attentionNeeded, color: .orange),
@@ -98,6 +98,12 @@ public enum AIOSDesign {
 
     public static func token(_ role: DesignRole) -> Color {
         tokens.first { $0.role == role }?.color ?? .accentColor
+    }
+
+    /// Hue-distinct historical surface: brown-tinted (light) / cool-slate
+    /// (dark). Past vs. now is readable in both appearances.
+    public static func historicalSurface(_ scheme: ColorScheme) -> Color {
+        scheme == .dark ? Color.blue.opacity(0.14) : Color.brown.opacity(0.15)
     }
 
     public struct FontSpec: Sendable, Equatable {
