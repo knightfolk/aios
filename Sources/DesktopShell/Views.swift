@@ -136,11 +136,9 @@ public final class AppModel: ObservableObject {
     }
 
     /// Deterministic emergency path — no models involved.
-    public func engageEmergencyStop() {
-        Task {
-            try? await emergencyStop.engage(reason: "user pressed the stop control")
-            await refresh()
-        }
+    public func engageEmergencyStop() async {
+        try? await emergencyStop.engage(reason: "user pressed the stop control")
+        await refresh()
     }
 }
 
