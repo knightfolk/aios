@@ -26,6 +26,7 @@ public final class AppModel: ObservableObject {
         self.emergencyStop = EmergencyStop(journal: store)
         self.notes = NotesStore(journal: store, storageRoot: store.rootDirectory)
         self.inbox = InboxStore(journal: store, storageRoot: store.rootDirectory)
+        self.checkpoints = CheckpointStore(journal: store)
     }
 
     /// Concierge front desk: deterministic routing, journaled effects.
@@ -33,6 +34,71 @@ public final class AppModel: ObservableObject {
         guard let routing = ConciergeRouter.route(raw) else { return }
         lastRouting = "\(routing.destination.rawValue): \(routing.payload)"
         try? await ConciergeRouter.deliver(raw, journal: store, notes: notes, inbox: inbox)
+        await refresh()
+    }
+
+    // MARK: - Interactive card actions (each maps to a journaling engine call)
+
+    private let checkpoints: CheckpointStore
+
+    public func resolveNeedsYou(subject: String, question: String, answer: String) async {
+        try? await store.append(.needsYouResolved(.init(subject: subject, question: question, answer: answer)))
+        await refresh()
+    }
+
+    @discardableResult
+    public func createNote(text: String) async -> NoteRecord {
+        (try? await notes.create(text: text)) ?? NoteRecord(id: "note-error", text: text, createdAt: Date())
+    }
+
+    public func promoteNote(id: String, target: String) async {
+        let summary = (await loadNotes()).first { $0.id == id }?.text ?? ""
+        try? await notes.promote(noteID: id, target: target, summary: String(summary.prefix(120)))
+        await refresh()
+    }
+
+    @discardableResult
+    public func createInboxItem(text: String) async -> InboxItemRecord {
+        (try? await inbox.create(text: text)) ?? InboxItemRecord(id: "inb-error", text: text, createdAt: Date())
+    }
+
+    public func promoteInboxItem(id: String, target: String) async {
+        let summary = (await loadInbox()).first { $0.id == id }?.text ?? ""
+        try? await inbox.promote(itemID: id, target: target, summary: String(summary.prefix(120)))
+        await refresh()
+    }
+
+    public func loadNotes() async -> [NoteRecord] {
+        (try? await notes.load()) ?? []
+    }
+
+    public func loadInbox() async -> [InboxItemRecord] {
+        (try? await inbox.load()) ?? []
+    }
+
+    @discardableResult
+    public func createCheckpoint(note: String) async -> CheckpointRecord {
+        (try? await checkpoints.createCheckpoint(note: note, artifactRefs: []))
+            ?? CheckpointRecord(checkpointID: "cp-error", atSequence: 0, note: note, artifactRefs: [])
+    }
+
+    @discardableResult
+    public func branchFrom(checkpointID: String, reason: String) async -> PlanRevisionID? {
+        let result = try? await checkpoints.branch(from: checkpointID, reason: reason)
+        await refresh()
+        return result ?? nil
+    }
+
+    public func restore(checkpointID: String, note: String) async {
+        try? await checkpoints.restore(checkpointID: checkpointID, note: note)
+        await refresh()
+    }
+
+    /// Stop control for a live activity: deterministic, journaled, no models.
+    public func cancelAttempt(attemptID: AttemptID, reason: String) async {
+        try? await store.append(.userIntervened(.init(
+            intervention: "stop requested for attempt \(attemptID.rawValue.uuidString.prefix(8)): \(reason)"
+        )))
         await refresh()
     }
 
@@ -179,8 +245,9 @@ public struct ProjectDesktopView: View {
     }
 }
 
-/// Phase 3 panels: Needs You, Project Health, Projected Future. Every line
-/// reads projected state; nothing decorative.
+/// Depth panels with teeth: Needs You resolves, Notes/Inbox promote,
+/// checkpoints branch and restore, live activities stop. Every button maps
+/// to a journaling engine call; nothing decorative.
 struct DepthPanels: View {
     @ObservedObject var model: AppModel
     let rendered: ProjectState
@@ -191,13 +258,7 @@ struct DepthPanels: View {
         let future = FutureViewModel.items(from: rendered)
 
         Group {
-            CardView(card: CardSummary(
-                title: "Needs You",
-                body: needsYou.active.isEmpty
-                    ? "queue empty (\(needsYou.resolvedCount) resolved)"
-                    : needsYou.active.map { "\($0.subject)\($0.blocking ? " [blocking]" : "")" }.joined(separator: " · "),
-                whyHere: "blocked on human decisions"
-            ))
+            NeedsYouPanel(model: model, summary: needsYou)
             CardView(card: CardSummary(
                 title: "Project Health",
                 body: HealthViewModel.lines(from: health).joined(separator: " · "),
@@ -210,7 +271,160 @@ struct DepthPanels: View {
                     : future.map { "\($0.objective) (\($0.dependencyCount) deps)" }.joined(separator: " · "),
                 whyHere: "the current plan — has not happened"
             ))
+            NotesInboxPanel(model: model)
+            CheckpointsPanel(model: model, state: rendered)
         }
+    }
+}
+
+struct NeedsYouPanel: View {
+    @ObservedObject var model: AppModel
+    let summary: NeedsYouSummary
+    @State private var answers: [String: String] = [:]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Needs You").font(.headline)
+                Spacer()
+                Text(summary.active.isEmpty ? "queue empty (\(summary.resolvedCount) resolved)" : "\(summary.active.count) open")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            ForEach(summary.active, id: \.question) { entry in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("\(entry.subject)\(entry.blocking ? " [blocking]" : "")").font(.subheadline.weight(.medium))
+                    Text(entry.question).font(.caption).foregroundStyle(.secondary)
+                    HStack {
+                        TextField("your decision", text: Binding(
+                            get: { answers[entry.question] ?? "" },
+                            set: { answers[entry.question] = $0 }
+                        ))
+                        .textFieldStyle(.roundedBorder)
+                        Button("Resolve") {
+                            let answer = answers[entry.question] ?? "(no answer given)"
+                            Task {
+                                await model.resolveNeedsYou(
+                                    subject: entry.subject, question: entry.question, answer: answer
+                                )
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled((answers[entry.question] ?? "").isEmpty)
+                    }
+                }
+                .padding(8)
+                .background(.background.tertiary, in: RoundedRectangle(cornerRadius: 6))
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct NotesInboxPanel: View {
+    @ObservedObject var model: AppModel
+    @State private var notes: [NoteRecord] = []
+    @State private var inbox: [InboxItemRecord] = []
+    @State private var newNote = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Desk Notes · Inbox").font(.headline)
+            HStack {
+                TextField("new note", text: $newNote)
+                    .textFieldStyle(.roundedBorder)
+                Button("Add") {
+                    let text = newNote
+                    newNote = ""
+                    Task {
+                        _ = await model.createNote(text: text)
+                        await reload()
+                    }
+                }
+                .disabled(newNote.isEmpty)
+            }
+            ForEach(notes) { note in
+                HStack {
+                    Text(note.text).font(.callout).lineLimit(2)
+                    Spacer()
+                    Button("→ Goal") { Task { await model.promoteNote(id: note.id, target: "GOAL"); await reload() } }
+                    Button("→ Pin") { Task { await model.promoteNote(id: note.id, target: "TIMELINE_PIN"); await reload() } }
+                }
+                .buttonStyle(.bordered)
+                .font(.caption)
+            }
+            ForEach(inbox.filter { !$0.discarded }) { item in
+                HStack {
+                    Text(item.text).font(.callout).foregroundStyle(.secondary).lineLimit(2)
+                    Spacer()
+                    Button("→ Task") { Task { await model.promoteInboxItem(id: item.id, target: "TASK"); await reload() } }
+                    Button("Discard") { Task { await model.promoteInboxItem(id: item.id, target: "DISCARDED"); await reload() } }
+                }
+                .buttonStyle(.bordered)
+                .font(.caption)
+            }
+            if notes.isEmpty && inbox.isEmpty {
+                Text("nothing captured").font(.caption).foregroundStyle(.tertiary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
+        .task { await reload() }
+    }
+
+    private func reload() async {
+        notes = await model.loadNotes()
+        inbox = await model.loadInbox()
+    }
+}
+
+struct CheckpointsPanel: View {
+    @ObservedObject var model: AppModel
+    let state: ProjectState
+    @State private var branchReason = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Checkpoints").font(.headline)
+                Spacer()
+                Button("Checkpoint Now") {
+                    Task { _ = await model.createCheckpoint(note: "from shell"); await model.refresh() }
+                }
+            }
+            ForEach(state.checkpoints, id: \.self) { checkpointID in
+                HStack {
+                    Text(checkpointID).font(.caption.monospaced())
+                    Spacer()
+                    TextField("branch reason", text: $branchReason)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 160)
+                    Button("Branch") {
+                        let reason = branchReason.isEmpty ? "branched from shell" : branchReason
+                        branchReason = ""
+                        Task { _ = await model.branchFrom(checkpointID: checkpointID, reason: reason) }
+                    }
+                    Button("Restore") {
+                        Task { await model.restore(checkpointID: checkpointID, note: "restored from shell") }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .font(.caption)
+            }
+            ForEach(state.branches, id: \.newPlanRevisionID) { branch in
+                Text("branch → \(branch.newPlanRevisionID.rawValue.uuidString.prefix(8)) from \(branch.fromCheckpointID): \(branch.reason)")
+                    .font(.caption2).foregroundStyle(.tertiary)
+            }
+            if state.checkpoints.isEmpty {
+                Text("no checkpoints yet").font(.caption).foregroundStyle(.tertiary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
