@@ -37,15 +37,22 @@ public actor Supervisor {
     /// Inspects one action result against the frozen task contract. Purely
     /// deterministic: same inputs, same directive.
     public func inspect(_ result: ActionResult, for request: ActionRequest, contract: TaskContract?) async -> Directive {
-        // Contract drift: the target must fall inside the frozen scope.
+        // Contract drift: file targets must fall inside the frozen scope. For
+        // shell.run the target is an executable, so the working directory is
+        // the meaningful scope anchor.
         if let contract {
-            let target = request.target.split(separator: " ").first.map(String.init) ?? request.target
+            let anchor: String
+            if request.operation == "shell.run", case .text(let cwd)? = request.parameters["cwd"] {
+                anchor = cwd
+            } else {
+                anchor = request.target.split(separator: " ").first.map(String.init) ?? request.target
+            }
             let inScope = contract.allowedScope.contains { scope in
-                target == scope || target.hasPrefix(scope.hasSuffix("/") ? scope : scope + "/")
+                anchor == scope || anchor.hasPrefix(scope.hasSuffix("/") ? scope : scope + "/")
             }
             if !inScope {
-                let directive = Directive.blockAttempt(reason: "action target \(target) drifts outside the task contract scope")
-                await escalate(subject: "contract drift", question: "Attempt touched \(target) outside its TaskContract. Block or revise the contract?", blocking: true)
+                let directive = Directive.blockAttempt(reason: "action target \(anchor) drifts outside the task contract scope")
+                await escalate(subject: "contract drift", question: "Attempt touched \(anchor) outside its TaskContract. Block or revise the contract?", blocking: true)
                 return directive
             }
         }

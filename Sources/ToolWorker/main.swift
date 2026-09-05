@@ -8,6 +8,7 @@ import ExecutionFabric
 
 let pipe = WorkerPipe()
 let workerID = "tool-\(ProcessInfo.processInfo.processIdentifier)"
+signal(SIGPIPE, SIG_IGN)
 
 // Heartbeats keep the host's hung-worker watchdog honest.
 let heartbeatThread = Thread {

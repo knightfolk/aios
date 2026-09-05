@@ -51,6 +51,12 @@ public actor WorkerSession {
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
+    /// A crashed worker leaves a broken pipe behind; writes must surface as
+    /// errors, not kill the host via SIGPIPE.
+    private static let ignoreSIGPIPE: Void = {
+        signal(SIGPIPE, SIG_IGN)
+    }()
+
     private var process: Process?
     private var writer: FileHandle?
     private var framer = StreamFramer()
@@ -66,6 +72,7 @@ public actor WorkerSession {
     private(set) public var lastWorkPackage: WorkPackage?
 
     public init(configuration: Configuration, journal: JournalStore? = nil) {
+        Self.ignoreSIGPIPE
         self.configuration = configuration
         self.journal = journal
     }

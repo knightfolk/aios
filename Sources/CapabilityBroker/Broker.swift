@@ -63,15 +63,25 @@ public actor CapabilityBroker {
             return reject("external consequence requires explicit user approval")
         }
 
-        if case .rejected(let reason) = ScopeEnforcer.decide(request, policy: policy) {
-            return reject(reason)
-        }
-
         if request.operation == "shell.run" {
+            // The target is an executable (constrained by the allowlist and
+            // Local Only); the workspace scope applies to the working
+            // directory the command runs in.
+            if case .text(let cwd)? = request.parameters["cwd"] {
+                let normalizedCwd = ScopeEnforcer.normalized(cwd)
+                let inside = policy.workspaceRoots
+                    .map(ScopeEnforcer.normalized)
+                    .contains { normalizedCwd == $0 || normalizedCwd.hasPrefix($0 + "/") }
+                if !inside {
+                    return reject("cwd \(cwd) is outside the approved workspace roots")
+                }
+            }
             let executable = request.target.split(separator: " ").first.map(String.init) ?? request.target
             if !policy.allowedCommands.contains(executable) {
                 return reject("command \(executable) is not on the allowlist")
             }
+        } else if case .rejected(let reason) = ScopeEnforcer.decide(request, policy: policy) {
+            return reject(reason)
         }
 
         // Capture precondition hashes for existing files the action touches.

@@ -29,6 +29,6 @@ let package = Package(
         .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "EvidenceEngine", "EvaluationEngine", "Scheduler", "Router", "ExpertRuntime", "ContextCompiler"]),
         .testTarget(name: "RecoveryTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ExecutionFabric", "Supervisor"]),
         .testTarget(name: "SecurityTests", dependencies: ["AIOSCore", "EventJournal", "SecurityKernel", "CapabilityBroker"]),
-        .testTarget(name: "IntegrationTests", dependencies: ["AIOSCore"]),
+        .testTarget(name: "IntegrationTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "SecurityKernel", "CapabilityBroker", "EvidenceEngine", "EvaluationEngine", "Supervisor", "ExecutionFabric", "Router", "ContextCompiler"]),
     ]
 )

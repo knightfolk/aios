@@ -42,6 +42,7 @@ do {
 
 let pipe = WorkerPipe()
 let workerID = "inference-\(ProcessInfo.processInfo.processIdentifier)"
+signal(SIGPIPE, SIG_IGN) // a dead host pipe must end us via EOF, not a signal mid-write
 
 // Heartbeats keep the host's hung-worker watchdog honest.
 let heartbeatThread = Thread {
