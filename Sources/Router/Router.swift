@@ -1,5 +1,6 @@
 import Foundation
 import AIOSCore
+import ModelRuntime
 
 /// Mostly deterministic capability/policy/budget selection. Every decision
 /// carries its rationale so expensive or surprising choices are inspectable
@@ -19,24 +20,54 @@ public struct RoutingDecision: Equatable, Sendable {
 public struct Router: Sendable {
     public init() {}
 
+    /// Legacy entry point from Phase 1: maps onto an implicit registry with
+    /// no local model manifest and no cloud configuration.
     public func decide(
         capabilities: [CapabilityClass],
         privacyPolicy: PrivacyPolicy,
         spendPolicy: SpendPolicy,
         localRuntimeAvailable: Bool
     ) -> RoutingDecision {
-        var rationale: [String] = []
+        decide(
+            capabilities: capabilities,
+            privacyPolicy: privacyPolicy,
+            spendPolicy: spendPolicy,
+            registry: RuntimeRegistry(mlxManifest: nil, cloudConfigured: false),
+            localRuntimeAvailable: localRuntimeAvailable
+        )
+    }
 
-        let runtime: RuntimeKind
+    public func decide(
+        capabilities: [CapabilityClass],
+        privacyPolicy: PrivacyPolicy,
+        spendPolicy: SpendPolicy,
+        registry: RuntimeRegistry,
+        localRuntimeAvailable: Bool = true
+    ) -> RoutingDecision {
+        var rationale: [String] = []
+        let available = registry.availableRuntimes(policy: privacyPolicy, budget: spendPolicy)
+
         if privacyPolicy == .localOnly {
-            runtime = localRuntimeAvailable ? .scripted : .deterministic
             rationale.append("privacy policy is Local Only: cloud runtimes are excluded")
         } else if (spendPolicy.maxSpendUSD ?? 0) <= 0 && !spendPolicy.allowPaidCredits {
-            runtime = localRuntimeAvailable ? .scripted : .deterministic
             rationale.append("budget is zero: cloud runtimes are excluded until the budget allows spend")
-        } else {
+        }
+
+        let runtime: RuntimeKind
+        if available.contains(.mlx) {
+            runtime = .mlx
+            if let manifest = registry.mlxManifest {
+                rationale.append("local MLX model \(manifest.modelID) (\(manifest.quantization)) is resident")
+            }
+        } else if available.contains(.cloudAPI) {
             runtime = .cloudAPI
             rationale.append("hybrid policy with $\(spendPolicy.maxSpendUSD ?? 0) budget permits cloud execution")
+        } else if available.contains(.scripted) && localRuntimeAvailable {
+            runtime = .scripted
+            rationale.append("no capable model runtime resident; scripted fallback selected")
+        } else {
+            runtime = .deterministic
+            rationale.append("no local runtime available; deterministic execution selected")
         }
         rationale.append("requested capabilities: \(capabilities.map(\.rawValue).sorted().joined(separator: ", "))")
 
