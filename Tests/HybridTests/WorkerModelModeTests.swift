@@ -67,9 +67,12 @@ private func echoSession(modelDir: URL, heartbeatTimeout: TimeInterval = 10) thr
 }
 
 @Test func modelModeStreamsAndReportsHonestIdentity() async throws {
-    setenv("AIOS_FAKE_LLM", "1", 1)
-    defer { unsetenv("AIOS_FAKE_LLM") }
-    unsetenv("AIOS_FAKE_LLM_DELAY_MS")
+    TestEnvGate.lock()
+    defer { TestEnvGate.unlock() }
+    TestEnvGate.set("AIOS_FAKE_LLM", "1")
+    TestEnvGate.set("AIOS_FAKE_LLM_ACTIONS", nil)
+    TestEnvGate.set("AIOS_ECHO_ACTION_TARGET", nil)
+    TestEnvGate.set("AIOS_FAKE_LLM_DELAY_MS", nil)
 
     let modelDir = try dummyModelDir()
     defer { try? FileManager.default.removeItem(at: modelDir) }
@@ -114,12 +117,12 @@ private func echoSession(modelDir: URL, heartbeatTimeout: TimeInterval = 10) thr
 }
 
 @Test func killMidGenerationFollowsCrashPath() async throws {
-    setenv("AIOS_FAKE_LLM", "1", 1)
-    setenv("AIOS_FAKE_LLM_DELAY_MS", "100", 1) // slow chunks → a real mid-generation window
-    defer {
-        unsetenv("AIOS_FAKE_LLM")
-        unsetenv("AIOS_FAKE_LLM_DELAY_MS")
-    }
+    TestEnvGate.lock()
+    defer { TestEnvGate.unlock() }
+    TestEnvGate.set("AIOS_FAKE_LLM", "1")
+    TestEnvGate.set("AIOS_FAKE_LLM_DELAY_MS", "100") // slow chunks → a real mid-generation window
+    TestEnvGate.set("AIOS_FAKE_LLM_ACTIONS", nil)
+    TestEnvGate.set("AIOS_ECHO_ACTION_TARGET", nil)
 
     let modelDir = try dummyModelDir()
     defer { try? FileManager.default.removeItem(at: modelDir) }

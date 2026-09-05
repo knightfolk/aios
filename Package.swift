@@ -41,7 +41,7 @@ let package = Package(
         ]),
         .target(name: "ComputerControl", dependencies: ["AIOSCore", "EventJournal", "SecurityKernel", "ModelRuntime"]),
         .target(name: "VoiceRuntime", dependencies: ["AIOSCore"]),
-        .target(name: "MediaRuntime", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
+        .target(name: "MediaRuntime", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ModelRuntime", "CloudRuntime", "SecurityKernel"]),
         .target(name: "Ecosystem", dependencies: ["AIOSCore"]),
         .target(name: "EvaluationEngine", dependencies: ["AIOSCore", "EventJournal", "ModelRuntime"]),
 

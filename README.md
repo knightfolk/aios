@@ -110,6 +110,13 @@ swift run WorkRuntimeApp --journal <directory-containing-<uuid>-journals>
   adapters are injectable; the bundled pair is a declared echo double —
   real local/cloud speech adapters are typed seams, honestly unavailable
   until their runtimes land.
+- **Real speech + image adapters**: local TTS via the system `say`
+  synthesizer (renders genuine AIFF audio, tested); Speech.framework ASR
+  adapter that reports authorization honestly and never fabricates
+  transcripts; a real Z.ai `cogview-4-250304` image adapter behind the
+  media seam — verified against the live API (2026-09-05): the model
+  exists but requires paid balance, so it reports unavailable on a
+  zero-balance account rather than faking output.
 - **Media runtime (Phase 6, Henson)**: render scheduling (one at a time,
   cancellable), artifact versioning with per-revision seeds and content
   hashes, and journaled provenance. The builtin renderer produces real

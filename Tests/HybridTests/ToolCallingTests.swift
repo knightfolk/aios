@@ -37,14 +37,11 @@ private func workerBinary() throws -> URL {
     let policy = SecurityPolicy(workspaceRoots: [workspace.path], allowedCommands: [], localOnly: true)
 
     let target = workspace.appendingPathComponent("brain-output.txt").path
-    setenv("AIOS_FAKE_LLM", "1", 1)
-    setenv("AIOS_FAKE_LLM_ACTIONS", "1", 1)
-    setenv("AIOS_ECHO_ACTION_TARGET", target, 1)
-    defer {
-        unsetenv("AIOS_FAKE_LLM")
-        unsetenv("AIOS_FAKE_LLM_ACTIONS")
-        unsetenv("AIOS_ECHO_ACTION_TARGET")
-    }
+    TestEnvGate.lock()
+    defer { TestEnvGate.unlock() }
+    TestEnvGate.set("AIOS_FAKE_LLM", "1")
+    TestEnvGate.set("AIOS_FAKE_LLM_ACTIONS", "1")
+    TestEnvGate.set("AIOS_ECHO_ACTION_TARGET", target)
 
     let session = WorkerSession(
         configuration: .init(executableURL: try workerBinary(),
