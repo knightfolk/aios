@@ -44,6 +44,15 @@ swift build          # builds everything including mlx-linked targets
 swift test           # offline, fast: full suite (unit + integration)
 ```
 
+## Prepare MLX Metal kernels (one-time per clean build)
+
+SwiftPM does not emit mlx-swift's Metal library; MLX loads it colocated with
+the binaries. After `swift build` (and after any clean), run:
+
+```sh
+./tools/prepare-mlx-metallib.sh
+```
+
 ## Fetch the local model (one-time, ~4.3 GB)
 
 ```sh

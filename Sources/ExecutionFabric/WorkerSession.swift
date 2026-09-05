@@ -90,7 +90,7 @@ public actor WorkerSession {
         let stdoutPipe = Pipe()
         process.standardInput = stdinPipe
         process.standardOutput = stdoutPipe
-        process.standardError = FileHandle.nullDevice
+        process.standardError = nil // inherit: worker diagnostics stay visible
         self.process = process
         self.writer = stdinPipe.fileHandleForWriting
 
@@ -249,6 +249,7 @@ public actor WorkerSession {
 
     private func noteTermination(exitCode: Int32) {
         guard !intentionalShutdown, started || exitCode != 0 else { return }
+        emit(.log("worker terminated with exit code \(exitCode)"))
         emit(.crashed(workerID: workerID))
         if let journal, let attemptID = lastWorkPackage?.attemptID {
             Task {

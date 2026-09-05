@@ -69,6 +69,7 @@ func liveMLXGenerationInWorker() async throws {
 
     var generation: GenerationResult?
     var work: WorkResult?
+    var crashed = false
     let deadline = Date().addingTimeInterval(240)
     loop: while Date() < deadline {
         for event in await session.eventHistory() {
@@ -78,12 +79,16 @@ func liveMLXGenerationInWorker() async throws {
             case .workResult(let result):
                 work = result
                 if generation != nil { break loop }
+            case .crashed:
+                crashed = true
+                break loop
             default:
                 break
             }
         }
         try await Task.sleep(for: .milliseconds(100))
     }
+    #expect(!crashed, "worker crashed during live generation")
 
     let done = try #require(generation, "no generation result within 240s")
     let result = try #require(work, "no work result within 240s")

@@ -43,6 +43,7 @@ final class WorkerContext: @unchecked Sendable {
 
 let ctx = WorkerContext()
 let options = Options(arguments: Array(CommandLine.arguments.dropFirst()))
+var handshaked = false
 signal(SIGPIPE, SIG_IGN) // a dead host pipe must end us via EOF, not a signal mid-write
 
 // Scenario mode (declared scripted runtime).
@@ -59,6 +60,28 @@ if let scenarioPath = options.scenarioPath {
     }
 }
 
+// Heartbeats keep the host's hung-worker watchdog honest (also during load).
+let heartbeatThread = Thread {
+    let interval = ctx.scenario?.heartbeatIntervalSeconds ?? 0.5
+    while true {
+        Thread.sleep(forTimeInterval: max(0.05, interval))
+        try? ctx.pipe.write(.heartbeat(Heartbeat(workerID: ctx.workerID)))
+    }
+}
+heartbeatThread.start()
+
+// Handshake FIRST: the host's session must see hello before a multi-GB
+// model load consumes the timeout budget.
+if let first = (try? ctx.pipe.readMessage()).flatMap({ $0 }),
+   case .helloRequest(let hello) = first {
+    try? ctx.pipe.write(.helloResponse(HelloResponse(
+        protocolVersion: hello.protocolVersion,
+        workerID: ctx.workerID,
+        runtime: options.modelDirectory == nil ? .scripted : (ctx.usingFakeEngine ? .scripted : .mlx)
+    )))
+    handshaked = true
+}
+
 // Model mode: load the real engine (or the declared echo engine).
 if let modelDirectory = options.modelDirectory {
     let dir = URL(fileURLWithPath: modelDirectory)
@@ -70,7 +93,8 @@ if let modelDirectory = options.modelDirectory {
     } else {
         let engine = MLXEngine(modelDirectory: dir)
         let loaded = DispatchSemaphore(value: 0)
-        Task {
+        // detached: main must not be the executor of its own blocking wait.
+        Task.detached {
             do {
                 try await engine.load()
             } catch {
@@ -90,19 +114,11 @@ if let modelDirectory = options.modelDirectory {
     }
 }
 
-// Heartbeats keep the host's hung-worker watchdog honest.
-let heartbeatThread = Thread {
-    let interval = ctx.scenario?.heartbeatIntervalSeconds ?? 0.5
-    while true {
-        Thread.sleep(forTimeInterval: max(0.05, interval))
-        try? ctx.pipe.write(.heartbeat(Heartbeat(workerID: ctx.workerID)))
-    }
-}
-heartbeatThread.start()
-
 outer: while let inbound = (try? ctx.pipe.readMessage()).flatMap({ $0 }) {
     switch inbound {
     case .helloRequest(let hello):
+        guard !handshaked else { break }
+        handshaked = true
         try? ctx.pipe.write(.helloResponse(HelloResponse(
             protocolVersion: hello.protocolVersion,
             workerID: ctx.workerID,
@@ -225,7 +241,8 @@ func runModelMode(engine: any LLMEngine, for package: WorkPackage, ctx: WorkerCo
     )
 
     let semaphore = DispatchSemaphore(value: 0)
-    Task {
+    // detached: the blocking main loop must not be the task's executor.
+    Task.detached {
         let generation = await engine.complete(request) { chunk in
             _ = try? pipe.write(.generationChunk(GenerationChunk(text: chunk)))
         }
