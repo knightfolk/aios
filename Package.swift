@@ -42,6 +42,7 @@ let package = Package(
         .target(name: "ComputerControl", dependencies: ["AIOSCore", "EventJournal", "SecurityKernel", "ModelRuntime"]),
         .target(name: "VoiceRuntime", dependencies: ["AIOSCore"]),
         .target(name: "MediaRuntime", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
+        .target(name: "Ecosystem", dependencies: ["AIOSCore"]),
         .target(name: "EvaluationEngine", dependencies: ["AIOSCore", "EventJournal", "ModelRuntime"]),
 
         // Executables — workers and the app run out of the UI/host process.
@@ -56,6 +57,6 @@ let package = Package(
         .testTarget(name: "RecoveryTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ExecutionFabric", "Supervisor"]),
         .testTarget(name: "SecurityTests", dependencies: ["AIOSCore", "EventJournal", "SecurityKernel", "CapabilityBroker"]),
         .testTarget(name: "IntegrationTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "SecurityKernel", "CapabilityBroker", "EvidenceEngine", "EvaluationEngine", "Supervisor", "ExecutionFabric", "Router", "ContextCompiler"]),
-        .testTarget(name: "HybridTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "SecurityKernel", "ExecutionFabric", "Supervisor", "Router", "ModelRuntime", "MLXRuntime", "CloudRuntime", "CapabilityBroker", "EvidenceEngine", "EvaluationEngine", "ComputerControl", "DesktopShell", "VoiceRuntime", "MediaRuntime"]),
+        .testTarget(name: "HybridTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "SecurityKernel", "ExecutionFabric", "Supervisor", "Router", "ModelRuntime", "MLXRuntime", "CloudRuntime", "CapabilityBroker", "EvidenceEngine", "EvaluationEngine", "ComputerControl", "DesktopShell", "VoiceRuntime", "MediaRuntime", "Ecosystem"]),
     ]
 )
