@@ -1,5 +1,0 @@
-//! Temporary bootstrap placeholder — replaced by real code in later plan tasks.
-
-public enum SchedulerInfo {
-    public static let schemaVersion: UInt = 1
-}

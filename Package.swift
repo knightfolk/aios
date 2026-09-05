@@ -26,7 +26,7 @@ let package = Package(
         .executableTarget(name: "ToolWorker", dependencies: ["AIOSCore", "ExecutionFabric"]),
 
         // Tests
-        .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "EvidenceEngine", "EvaluationEngine"]),
+        .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "EvidenceEngine", "EvaluationEngine", "Scheduler", "Router", "ExpertRuntime", "ContextCompiler"]),
         .testTarget(name: "RecoveryTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ExecutionFabric", "Supervisor"]),
         .testTarget(name: "SecurityTests", dependencies: ["AIOSCore", "EventJournal", "SecurityKernel", "CapabilityBroker"]),
         .testTarget(name: "IntegrationTests", dependencies: ["AIOSCore"]),
