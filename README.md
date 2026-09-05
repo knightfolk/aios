@@ -5,7 +5,7 @@ grounded "AI computer" rather than a chat client. Users work inside persistent
 Project desktops; underneath is a durable runtime for goals, agents, tools,
 evidence, computer use, voice, media, and long-running execution.
 
-Status: **Phase 0–6 complete** (engine kernel, first vertical slice, hybrid
+Status: **Phase 0–7 complete** (first full roadmap pass) (engine kernel, first vertical slice, hybrid
 intelligence). See `docs/superpowers/specs/` and `docs/superpowers/plans/` for
 the design history; `docs/` holds the full architecture packet.
 
@@ -116,8 +116,17 @@ swift run WorkRuntimeApp --journal <directory-containing-<uuid>-journals>
   local artifacts (gradient PNGs, tone WAVs) explicitly labeled synthetic —
   model-backed image/music/video adapters are typed seams, honestly
   unavailable until their runtimes land.
-- Ecosystem integration (MCP, Agent Skills, extension trust) is the final
-  phase; see `docs/10_VALIDATION_AND_ROADMAP.md`.
+- **Ecosystem (Phase 7)**: a real MCP client (JSON-RPC 2.0 over stdio:
+  initialize → tools/list → tools/call, integration-tested against a live
+  fixture server) with tool→action mapping under broker policy; Agent
+  Skills SKILL.md loading where declared capabilities are requests, never
+  grants; extension trust with pinned SHA-256 hashes and mandatory
+  reapproval on capability expansion; LAN worker transport as an honest
+  declared seam.
+- Remaining roadmap depth (remote iPad companion, ACP/A2A, signed
+  distribution, model-backed media renderers, real speech adapters) is
+  tracked in `docs/10_VALIDATION_AND_ROADMAP.md` and the README
+  limitations above.
 
 ## License
 
