@@ -181,6 +181,7 @@ struct DepthPanels: View {
             ))
             NotesInboxPanel(model: model)
             CheckpointsPanel(model: model, state: rendered)
+            VoicePanel(model: model)
             ActivityCenterPanel(model: model, rendered: rendered)
             ForEach(ExpertTeam.permanentTeam(), id: \.identity) { expert in
                 ExpertCard(model: model, role: expert.role)

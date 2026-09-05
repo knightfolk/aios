@@ -18,7 +18,7 @@ public struct VoiceBuffer: Sendable, Equatable {
 }
 
 /// Where a spoken/heard utterance is routed — explicit, never guessed.
-public enum VoiceTarget: Sendable, Equatable {
+public enum VoiceTarget: Sendable, Equatable, Hashable {
     case concierge
     case project(String)
 }

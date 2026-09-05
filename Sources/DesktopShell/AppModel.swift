@@ -3,6 +3,8 @@ import SwiftUI
 import AIOSCore
 import EventJournal
 import ProjectKernel
+import ModelRuntime
+import EvaluationEngine
 
 @MainActor
 public final class AppModel: ObservableObject {
@@ -37,10 +39,17 @@ public final class AppModel: ObservableObject {
         if let storedSession = try? sessionStore.load(for: store.projectID) {
             session = storedSession
         }
+        self.telemetryWriter = TelemetryWriter(
+            url: store.rootDirectory
+                .appendingPathComponent(store.projectID.rawValue.uuidString, isDirectory: true)
+                .appendingPathComponent("telemetry/routing.jsonl")
+        )
     }
 
     private let layoutStore: ProjectLayoutStore
     private let sessionStore: DesktopSessionStore
+    private let telemetryWriter: TelemetryWriter
+    @Published public private(set) var modelRecommendation: HarnessRecommendation?
 
     /// Drag-and-drop persistence: the new arrangement lands in the session.
     public func saveCardOrder(_ order: [String]) async {
@@ -140,6 +149,43 @@ public final class AppModel: ObservableObject {
         // checkpoint instead of replaying the whole journal.
         state = try? Projection.loadUsingSnapshot(store)
         stopEngaged = await emergencyStop.engaged
+        recordTelemetry()
+        updateRecommendation()
+    }
+
+    /// Feeds the quality loop: every ended attempt gets a telemetry row
+    /// from its projection fields — measured, not assumed.
+    private func recordTelemetry() {
+        guard let state else { return }
+        for attempt in state.attempts.values where attempt.phase == .ended {
+            guard let worker = attempt.worker else { continue }
+            let row = RoutingTelemetry(
+                modelID: worker.model ?? "unknown",
+                revision: worker.revision ?? "?",
+                quantization: "n/a",
+                runtime: worker.runtime,
+                harnessProfileID: attempt.modelSelection.map { _ in "default-v1" } ?? "none",
+                taskClass: "general",
+                latencyMs: 0, // latency comes from the worker's generation result, not the journal
+                promptTokens: 0,
+                completionTokens: 0,
+                outcome: attempt.outcome?.rawValue ?? "UNKNOWN"
+            )
+            try? telemetryWriter.append(row)
+        }
+    }
+
+    /// Empirical model preference from accumulated telemetry.
+    private func updateRecommendation() {
+        guard let state else { return }
+        let url = store.rootDirectory
+            .appendingPathComponent(state.projectID.rawValue.uuidString, isDirectory: true)
+            .appendingPathComponent("telemetry/routing.jsonl")
+        guard let rows = try? readTelemetry(url: url), !rows.isEmpty else { return }
+        let candidates = Array(Set(rows.map(\.modelID)))
+        modelRecommendation = HarnessRecommender.recommend(
+            candidates: candidates, telemetry: rows, taskClass: "general", minimumSamples: 3
+        )
     }
 
     /// Scrub to a journal position: pure prefix replay, never a rollback.

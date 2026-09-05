@@ -23,7 +23,7 @@ let package = Package(
         .target(name: "ExpertRuntime", dependencies: ["AIOSCore"]),
         .target(name: "EvidenceEngine", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
         .target(name: "ContextCompiler", dependencies: ["AIOSCore"]),
-        .target(name: "DesktopShell", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ExecutionFabric", "ModelRuntime", "MLXRuntime", "ExpertRuntime"]),
+        .target(name: "DesktopShell", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ExecutionFabric", "ModelRuntime", "MLXRuntime", "ExpertRuntime", "EvaluationEngine", "VoiceRuntime"]),
 
         // Phase 2 — hybrid intelligence.
         .target(name: "ModelRuntime", dependencies: ["AIOSCore"], resources: [
@@ -47,7 +47,7 @@ let package = Package(
 
         // Executables — workers and the app run out of the UI/host process.
         .executableTarget(name: "WorkRuntimeApp", dependencies: ["AIOSCore", "EventJournal", "DesktopShell"]),
-        .executableTarget(name: "InferenceWorker", dependencies: ["AIOSCore", "ExecutionFabric", "ModelRuntime", "MLXRuntime"]),
+        .executableTarget(name: "InferenceWorker", dependencies: ["AIOSCore", "ExecutionFabric", "ModelRuntime", "MLXRuntime", "ContextCompiler"]),
         .executableTarget(name: "ToolWorker", dependencies: ["AIOSCore", "ExecutionFabric"]),
         .executableTarget(name: "ModelFetch", dependencies: ["AIOSCore", "ModelRuntime", "MLXRuntime"]),
         .executableTarget(name: "ProviderSetup", dependencies: ["AIOSCore", "ModelRuntime", "SecurityKernel", "CloudRuntime"]),

@@ -3,6 +3,7 @@ import AIOSCore
 import ExecutionFabric
 import ModelRuntime
 import MLXRuntime
+import ContextCompiler
 
 // InferenceWorker — the Brain-side worker. Two honest modes:
 //   --scenario <file>   declared scripted runtime (scenario-driven)
@@ -217,10 +218,17 @@ func runModelMode(engine: any LLMEngine, for package: WorkPackage, ctx: WorkerCo
         exit(3)
     }
 
-    let systemPrompt = profile.systemPrompt + "\nRespond with a single JSON object matching this contract:\n" + profile.outputContractJSON
-    let contextBlock = package.contextBundle.selections
+    // Compiled through the ContextCompiler: bounded, prioritized, tested.
+    let compiled = ContextCompiler().compile(
+        contract: package.taskContract,
+        candidates: package.contextBundle.selections,
+        priorHandoff: nil,
+        tokenBudget: package.contextBundle.tokenBudget
+    )
+    let contextBlock = compiled.selections
         .map { "--- \($0.path) (\($0.reason)) ---" }
         .joined(separator: "\n")
+    let systemPrompt = profile.systemPrompt + "\nRespond with a single JSON object matching this contract:\n" + profile.outputContractJSON
     let userPrompt = """
     Objective: \(package.taskContract.objective)
     Allowed scope: \(package.taskContract.allowedScope.joined(separator: ", "))
