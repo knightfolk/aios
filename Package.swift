@@ -8,7 +8,7 @@ let package = Package(
         // Libraries — authoritative state, security, execution stay in separate modules.
         .target(name: "AIOSCore"),
         .target(name: "EventJournal", dependencies: ["AIOSCore"]),
-        .target(name: "ProjectKernel", dependencies: ["AIOSCore"]),
+        .target(name: "ProjectKernel", dependencies: ["AIOSCore", "EventJournal"]),
         .target(name: "Scheduler", dependencies: ["AIOSCore"]),
         .target(name: "Router", dependencies: ["AIOSCore"]),
         .target(name: "Supervisor", dependencies: ["AIOSCore"]),
@@ -26,7 +26,7 @@ let package = Package(
         .executableTarget(name: "ToolWorker", dependencies: ["AIOSCore"]),
 
         // Tests
-        .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal"]),
+        .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
         .testTarget(name: "RecoveryTests", dependencies: ["AIOSCore"]),
         .testTarget(name: "SecurityTests", dependencies: ["AIOSCore"]),
         .testTarget(name: "IntegrationTests", dependencies: ["AIOSCore"]),
