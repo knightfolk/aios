@@ -1,0 +1,34 @@
+// swift-tools-version:6.1
+import PackageDescription
+
+let package = Package(
+    name: "AIOS",
+    platforms: [.macOS(.v15)],
+    targets: [
+        // Libraries — authoritative state, security, execution stay in separate modules.
+        .target(name: "AIOSCore"),
+        .target(name: "EventJournal", dependencies: ["AIOSCore"]),
+        .target(name: "ProjectKernel", dependencies: ["AIOSCore"]),
+        .target(name: "Scheduler", dependencies: ["AIOSCore"]),
+        .target(name: "Router", dependencies: ["AIOSCore"]),
+        .target(name: "Supervisor", dependencies: ["AIOSCore"]),
+        .target(name: "CapabilityBroker", dependencies: ["AIOSCore"]),
+        .target(name: "SecurityKernel", dependencies: ["AIOSCore"]),
+        .target(name: "ExecutionFabric", dependencies: ["AIOSCore"]),
+        .target(name: "ExpertRuntime", dependencies: ["AIOSCore"]),
+        .target(name: "EvidenceEngine", dependencies: ["AIOSCore"]),
+        .target(name: "ContextCompiler", dependencies: ["AIOSCore"]),
+        .target(name: "EvaluationEngine", dependencies: ["AIOSCore"]),
+
+        // Executables — workers and the app run out of the UI/host process.
+        .executableTarget(name: "WorkRuntimeApp", dependencies: ["AIOSCore"]),
+        .executableTarget(name: "InferenceWorker", dependencies: ["AIOSCore"]),
+        .executableTarget(name: "ToolWorker", dependencies: ["AIOSCore"]),
+
+        // Tests
+        .testTarget(name: "KernelTests", dependencies: ["AIOSCore"]),
+        .testTarget(name: "RecoveryTests", dependencies: ["AIOSCore"]),
+        .testTarget(name: "SecurityTests", dependencies: ["AIOSCore"]),
+        .testTarget(name: "IntegrationTests", dependencies: ["AIOSCore"]),
+    ]
+)
