@@ -5,7 +5,35 @@ grounded "AI computer" rather than a chat client. Users work inside persistent
 Project desktops; underneath is a durable runtime for goals, agents, tools,
 evidence, computer use, voice, media, and long-running execution.
 
-Status: **Phase 0–7 complete** (first full roadmap pass) (engine kernel, first vertical slice, hybrid
+Status: **First full roadmap pass complete, live-proven** — the resident
+local model proposes real actions, the broker executes them, and the
+journal records everything.
+
+## Architecture in one screen
+
+```
+User / Project Desktop (SwiftUI, projections only)
+        │
+Concierge routing (goal: / note: / inbox: / ask:)
+        │
+Project Kernel ← Event Journal (append-only, CRC-framed; the only truth)
+        │
+Scheduler / Router (registry + telemetry-driven recommendations)
+        │
+Expert Runtime → InferenceWorker (--model: real MLX brain, multi-turn
+        │         tool-calling via harness contracts; --scenario: declared
+        │         scripted double)      ToolWorker (authorized commands)
+        │
+CapabilityBroker → SecurityKernel → ExecutionFabric
+   (Prepare→Validate→Authorize→Execute→Observe→Reconcile; Local Only;
+    workspace scopes; command allowlists; one computer-control lease)
+        │
+EvidenceEngine / Independent Evaluation → completion only on evidence
+```
+
+Design authority: `docs/02_ENGINE_CONSTITUTION.md`. History:
+`docs/superpowers/specs/` and `docs/superpowers/plans/`. Contributing:
+`CONTRIBUTING.md`. (engine kernel, first vertical slice, hybrid
 intelligence). See `docs/superpowers/specs/` and `docs/superpowers/plans/` for
 the design history; `docs/` holds the full architecture packet.
 
