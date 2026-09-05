@@ -16,6 +16,8 @@ public final class AppModel: ObservableObject {
 
     public let projectID: ProjectID
     private let store: JournalStore
+    /// Read-only handle for ruler/projection builders.
+    public var storeForRuler: JournalStore { store }
     public let emergencyStop: EmergencyStop
     private let notes: NotesStore
     private let inbox: InboxStore
@@ -215,6 +217,8 @@ public struct ProjectDesktopView: View {
                 .padding(10)
                 .background(Color.gray.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
             }
+
+            TimelineRulerView(model: model)
 
             HStack(spacing: 16) {
                 Text("Timeline scrub").font(.caption)
@@ -468,5 +472,67 @@ public struct HomeView: View {
                 Button("p1") { Task { await model.returnToNow() } }.keyboardShortcut(.cancelAction)
             }
         )
+    }
+}
+
+/// Event ruler with branch lanes over the scrub range (docs 06: branches
+/// as lanes; the playhead snaps to meaningful history).
+struct TimelineRulerView: View {
+    @ObservedObject var model: AppModel
+    @State private var ruler: TimelineRuler = TimelineRuler(totalEvents: 0, marks: [], lanes: [])
+
+    var body: some View {
+        let position = model.historicalState?.lastSequence ?? model.state?.lastSequence ?? 0
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 2) {
+                ForEach(ruler.marks) { mark in
+                    Rectangle()
+                        .fill(color(for: mark.label))
+                        .frame(width: 2, height: mark.sequence == position ? 18 : 10)
+                        .help("\(mark.label) @#\(mark.sequence)")
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(height: 20)
+            ForEach(ruler.lanes) { lane in
+                HStack(spacing: 6) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(lane.branchID == nil ? Color.accentColor.opacity(0.5) : Color.purple.opacity(0.5))
+                        .frame(width: laneWidth(for: lane), height: 4)
+                    Text(lane.label)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            }
+            if let nearest = TimelineRulerViewModel.nearestMark(to: position, in: ruler.marks) {
+                Text("nearest: \(nearest.label) @#\(nearest.sequence)")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .task {
+            ruler = TimelineRulerViewModel.build(from: model.storeForRuler)
+        }
+        .onChange(of: model.state?.lastSequence) { _ in
+            ruler = TimelineRulerViewModel.build(from: model.storeForRuler)
+        }
+    }
+
+    private func color(for label: String) -> Color {
+        switch label {
+        case "Verified": return .green
+        case "Verification failed": return .red
+        case "Crash": return .orange
+        case "Branch", "Restored", "Checkpoint": return .purple
+        default: return .accentColor
+        }
+    }
+
+    private func laneWidth(for lane: BranchLane) -> CGFloat {
+        let total = max(Double(ruler.totalEvents), 1)
+        let start = Double(lane.startsAtSequence) / total
+        let end = Double(lane.endsAtSequence ?? ruler.totalEvents) / total
+        return max(24, (end - start) * 320)
     }
 }
