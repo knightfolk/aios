@@ -12,15 +12,28 @@ public final class AppModel: ObservableObject {
     /// Non-nil while scrubbing history: the read-only reconstructed state.
     @Published public private(set) var historicalState: ProjectState?
     @Published public private(set) var stopEngaged = false
+    @Published public private(set) var lastRouting: String?
 
     public let projectID: ProjectID
     private let store: JournalStore
     public let emergencyStop: EmergencyStop
+    private let notes: NotesStore
+    private let inbox: InboxStore
 
     public init(store: JournalStore) {
         self.store = store
         self.projectID = store.projectID
         self.emergencyStop = EmergencyStop(journal: store)
+        self.notes = NotesStore(journal: store, storageRoot: store.rootDirectory)
+        self.inbox = InboxStore(journal: store, storageRoot: store.rootDirectory)
+    }
+
+    /// Concierge front desk: deterministic routing, journaled effects.
+    public func submitConcierge(_ raw: String) async {
+        guard let routing = ConciergeRouter.route(raw) else { return }
+        lastRouting = "\(routing.destination.rawValue): \(routing.payload)"
+        try? await ConciergeRouter.deliver(raw, journal: store, notes: notes, inbox: inbox)
+        await refresh()
     }
 
     public func refresh() async {
@@ -203,6 +216,7 @@ struct DepthPanels: View {
 
 public struct HomeView: View {
     @ObservedObject var model: AppModel
+    @State private var conciergeInput = ""
 
     public init(model: AppModel) {
         self.model = model
@@ -211,6 +225,19 @@ public struct HomeView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("AI Work Runtime").font(.title.weight(.bold))
+            HStack {
+                Image(systemName: "sparkles")
+                TextField("goal: … / note: … / inbox: … / ask: …", text: $conciergeInput)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit {
+                        let raw = conciergeInput
+                        conciergeInput = ""
+                        Task { await model.submitConcierge(raw) }
+                    }
+                if let last = model.lastRouting {
+                    Text(last).font(.caption).foregroundStyle(.tertiary).lineLimit(1)
+                }
+            }
             if model.stopEngaged {
                 Label("Emergency Stop engaged — automation halted", systemImage: "octagon.fill")
                     .foregroundStyle(.red)
@@ -221,5 +248,11 @@ public struct HomeView: View {
         }
         .padding(16)
         .frame(minWidth: 720, minHeight: 520)
+        .background(
+            // Keyboard-first navigation (docs 06): declared shortcuts.
+            Group {
+                Button("p1") { Task { await model.returnToNow() } }.keyboardShortcut(.cancelAction)
+            }
+        )
     }
 }
