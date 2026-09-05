@@ -240,19 +240,128 @@ func runModelMode(engine: any LLMEngine, for package: WorkPackage, ctx: WorkerCo
         harnessProfileID: profile.profileID
     )
 
+    // Multi-turn tool-calling loop (max 4 turns per attempt): the brain may
+    // propose actions per turn; each becomes a real broker-gated
+    // ActionRequest whose result feeds the next turn as an observation.
     let semaphore = DispatchSemaphore(value: 0)
-    // detached: the blocking main loop must not be the task's executor.
     Task.detached {
-        let generation = await engine.complete(request) { chunk in
-            _ = try? pipe.write(.generationChunk(GenerationChunk(text: chunk)))
-        }
-        _ = try? pipe.write(.generationDone(generation))
+        var messages = request.messages
+        var completedActions: [ActionID] = []
+        var finalGeneration = GenerationResult(text: "", promptTokens: 0, completionTokens: 0, latencyMs: 0, outcome: .failed, detail: "no generation ran")
 
-        let workResult = buildWorkResult(from: generation, for: package, ctx: ctx)
+        turnLoop: for turn in 0..<4 {
+            let generation = await engine.complete(
+                GenerationRequest(messages: messages, maxTokens: request.maxTokens,
+                                  temperature: request.temperature,
+                                  harnessProfileID: request.harnessProfileID)
+            ) { chunk in
+                _ = try? pipe.write(.generationChunk(GenerationChunk(text: chunk)))
+            }
+            finalGeneration = generation
+            _ = try? pipe.write(.generationDone(generation))
+
+            let parsed = parseContractOutput(from: generation.text)
+            guard let actions = parsed.actions, !actions.isEmpty else { break turnLoop }
+
+            var observations: [String] = []
+            for action in actions {
+                let request = actionRequest(for: action, in: package, ctx: ctx)
+                guard (try? pipe.write(.actionRequest(request))) != nil else { break turnLoop }
+                // Block until the broker's result for THIS action arrives.
+                while let reply = (try? pipe.readMessage()).flatMap({ $0 }) {
+                    switch reply {
+                    case .actionResult(let result) where result.actionID == request.actionID:
+                        completedActions.append(request.actionID)
+                        observations.append("\(action.operation) → \(result.outcome.rawValue)\(result.failureDetails.map { " (\($0))" } ?? "")")
+                        break
+                    case .cancel:
+                        break turnLoop
+                    case .shutdown:
+                        exit(0)
+                    default:
+                        continue // heartbeats and other traffic pass by
+                    }
+                    break
+                }
+            }
+
+            messages.append(ChatMessage(role: .assistant, content: generation.text))
+            messages.append(ChatMessage(role: .user, content: "ACTION RESULTS:\n" + observations.map { "- \($0)" }.joined(separator: "\n")))
+        }
+
+        var workResult = buildWorkResult(from: finalGeneration, for: package, ctx: ctx)
+        workResult.completedActionRefs = completedActions
         _ = try? pipe.write(.workResult(workResult))
         semaphore.signal()
     }
     _ = semaphore.wait(timeout: .now() + 600)
+}
+
+/// One proposed action from the harness contract.
+struct ProposedAction {
+    var operation: String
+    var target: String
+    var parameters: [String: String]
+    var expectedEffect: String
+    var verificationPlan: String
+}
+
+struct ParsedContract {
+    var actions: [ProposedAction]?
+}
+
+func parseContractOutput(from text: String) -> ParsedContract {
+    var body = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    if body.hasPrefix("```") {
+        body = body.replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    struct Wrapper: Codable {
+        struct WireAction: Codable {
+            var operation: String
+            var target: String
+            var parameters: [String: String]?
+            var expectedEffect: String?
+            var verificationPlan: String?
+        }
+        var actions: [WireAction]?
+    }
+    guard let data = body.data(using: .utf8),
+          let decoded = try? JSONDecoder().decode(Wrapper.self, from: data) else {
+        return ParsedContract(actions: nil)
+    }
+    return ParsedContract(actions: decoded.actions.map { wire in
+        wire.map { action in
+            ProposedAction(
+                operation: action.operation,
+                target: action.target,
+                parameters: action.parameters ?? [:],
+                expectedEffect: action.expectedEffect ?? "proposed by brain",
+                verificationPlan: action.verificationPlan ?? "inspect result"
+            )
+        }
+    })
+}
+
+func actionRequest(for action: ProposedAction, in package: WorkPackage, ctx: WorkerContext) -> ActionRequest {
+    let capability = WorkerScenario.capabilityClass(forOperation: action.operation)
+    return ActionRequest(
+        actionID: ActionID(),
+        workPackageID: package.packageID,
+        requestedBy: package.role,
+        capability: capability,
+        operation: action.operation,
+        target: action.target,
+        parameters: action.parameters.mapValues { .text($0) },
+        expectedEffect: action.expectedEffect,
+        sideEffectClass: WorkerScenario.sideEffectClass(forOperation: action.operation),
+        reversibility: .reversible,
+        idempotency: .idempotent,
+        requiredPermission: capability,
+        preconditions: [],
+        verificationPlan: action.verificationPlan
+    )
 }
 
 /// Parses the harness-contract JSON from generated text. When the model does

@@ -79,7 +79,7 @@ extension WorkerScenario {
         )
     }
 
-    static func capabilityClass(forOperation operation: String) -> CapabilityClass {
+    public static func capabilityClass(forOperation operation: String) -> CapabilityClass {
         switch operation {
         case _ where operation.hasPrefix("fs.read"),
              _ where operation.hasPrefix("git.diff"),
@@ -90,7 +90,7 @@ extension WorkerScenario {
         }
     }
 
-    static func sideEffectClass(forOperation operation: String) -> SideEffectClass {
+    public static func sideEffectClass(forOperation operation: String) -> SideEffectClass {
         switch operation {
         case _ where operation.hasPrefix("fs.read"),
              _ where operation.hasPrefix("git.diff"):

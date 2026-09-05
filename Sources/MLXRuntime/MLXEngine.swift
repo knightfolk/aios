@@ -129,9 +129,26 @@ public final class EchoEngine: LLMEngine, @unchecked Sendable {
     public func complete(_ request: GenerationRequest, onChunk: @Sendable (String) -> Void) async -> GenerationResult {
         let started = Date()
         let userText = request.messages.last(where: { $0.role == .user })?.content ?? ""
-        let payload = """
-        {"status": "COMPLETED", "summary": "echo engine acknowledged the package", "claims": [{"statement": "ECHO: \(userText.prefix(120))", "statementType": "GENERATED_CONTENT"}], "unresolvedAssumptions": [], "recommendedNextSteps": []}
-        """
+
+        // Declared two-turn action script (tests only): turn 1 proposes one
+        // real fs.write action; turn 2 completes after the observation.
+        let actionsEnabled = ProcessInfo.processInfo.environment["AIOS_FAKE_LLM_ACTIONS"] == "1"
+        let actionTarget = ProcessInfo.processInfo.environment["AIOS_ECHO_ACTION_TARGET"] ?? ""
+        let isFollowUpTurn = request.messages.count >= 3
+        let payload: String
+        if actionsEnabled && !actionTarget.isEmpty && !isFollowUpTurn {
+            payload = """
+            {"status": "IN_PROGRESS", "summary": "echo brain will write the marker file", "actions": [{"operation": "fs.write", "target": "\(actionTarget)", "parameters": {"contents": "ECHO_ACTION_OK"}, "expectedEffect": "marker file written", "verificationPlan": "read back"}], "unresolvedAssumptions": [], "recommendedNextSteps": []}
+            """
+        } else if actionsEnabled && !actionTarget.isEmpty && isFollowUpTurn {
+            payload = """
+            {"status": "COMPLETED", "summary": "echo brain observed the write result and finished", "claims": [{"statement": "marker file written through the broker", "statementType": "GENERATED_CONTENT"}], "unresolvedAssumptions": [], "recommendedNextSteps": []}
+            """
+        } else {
+            payload = """
+            {"status": "COMPLETED", "summary": "echo engine acknowledged the package", "claims": [{"statement": "ECHO: \(userText.prefix(120))", "statementType": "GENERATED_CONTENT"}], "unresolvedAssumptions": [], "recommendedNextSteps": []}
+            """
+        }
         for piece in payload.split(separator: " ") {
             onChunk(String(piece) + " ")
             if delayMs > 0 {
