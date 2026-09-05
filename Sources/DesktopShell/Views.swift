@@ -5,60 +5,77 @@ import EventJournal
 import ProjectKernel
 import ExpertRuntime
 
-/// Loads and refreshes projected state. UI state is never authoritative —
-/// every visible fact comes from the journal via `Projection`.
+// The AI-OS desktop: a full-bleed wallpaper canvas with glassy panels in a
+// deliberate layout — top status bar, prominent Concierge, timeline band,
+// three-panel workspace, expert dock. macOS-native feel: ultraThinMaterial,
+// rounded 14, SF Symbols, subtle strokes. Everything renders projections.
 
+// MARK: - Desktop canvas
 
-struct TimelineStrip: View {
-    let segments: [TimelineSegment]
+struct DesktopCanvas<Content: View>: View {
+    @Environment(\.colorScheme) private var scheme
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) {
+        self.content = content()
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
-            ForEach(segments) { segment in
-                HStack(spacing: 4) {
-                    Text(segment.kind.rawValue)
-                        .font(.caption2.weight(.bold))
-                        .monospaced()
-                    Text("\(segment.count)")
-                        .font(.caption2.monospacedDigit())
-                }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(backgroundColor(for: segment.kind), in: RoundedRectangle(cornerRadius: 4))
-                .help(segment.detail)
+        ZStack {
+            LinearGradient(
+                colors: scheme == .dark
+                    ? [Color(red: 0.07, green: 0.09, blue: 0.16), Color(red: 0.10, green: 0.10, blue: 0.13), Color(red: 0.05, green: 0.06, blue: 0.10)]
+                    : [Color(red: 0.85, green: 0.89, blue: 0.98), Color(red: 0.93, green: 0.92, blue: 0.96), Color(red: 0.80, green: 0.86, blue: 0.95)],
+                startPoint: .topLeading, endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+            RadialGradient(
+                colors: scheme == .dark ? [Color.indigo.opacity(0.25), .clear] : [Color.white.opacity(0.5), .clear],
+                center: .topTrailing,
+                startRadius: 50, endRadius: 900
+            )
+            .ignoresSafeArea()
+            content
+        }
+    }
+}
+
+// MARK: - Glass panel primitive
+
+struct GlassPanel<Content: View>: View {
+    let title: String
+    let symbol: String
+    var tint: Color = .accentColor
+    var trailing: AnyView? = nil
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .foregroundStyle(tint)
+                Text(title).font(.system(size: 15, weight: .semibold, design: .rounded))
+                Spacer()
+                if let trailing { trailing }
             }
+            content()
         }
-    }
-
-    private func backgroundColor(for kind: TimelineSegmentKind) -> Color {
-        switch kind {
-        case .past: return Color.gray.opacity(0.22) // recorded history reads muted
-        case .now: return Color.accentColor.opacity(0.18)
-        case .future: return Color.blue.opacity(0.12)
-        case .gaps: return Color.orange.opacity(0.15)
-        }
-    }
-}
-
-struct CardView: View {
-    let card: CardSummary
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(card.title)
-                .font(.system(size: AIOSDesign.fontRole("cardTitle").size, weight: AIOSDesign.fontRole("cardTitle").weight))
-            Text(card.body).font(.body).foregroundStyle(.secondary)
-            Text("Why: \(card.whyHere)").font(.caption).foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
-        .accessibilityElement(children: .combine)
+        .padding(16)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        )
     }
 }
 
-public struct ProjectDesktopView: View {
+// MARK: - Root: the desktop
+
+public struct HomeView: View {
     @ObservedObject var model: AppModel
+    @State private var conciergeInput = ""
+    @State private var clock: Date = Date()
     @Environment(\.colorScheme) private var colorScheme
 
     public init(model: AppModel) {
@@ -69,48 +86,107 @@ public struct ProjectDesktopView: View {
         model.displayState ?? ProjectState(projectID: model.projectID)
     }
 
-    /// Snap granularity: 1 for short journals; coarser steps keep 50k-event
-    /// journals scrubable (docs 06: scrub is a first-class surface).
-    private var scrubStep: Double {
-        let total = model.state?.lastSequence ?? 0
-        if total < 100 { return 1 }
-        if total < 1_000 { return 5 }
-        if total < 10_000 { return 25 }
-        return 100
+    private var scrub: ScrubPosition {
+        ScrubPosition(
+            sequence: model.historicalState?.lastSequence ?? model.state?.lastSequence ?? 0,
+            lastSequence: model.state?.lastSequence ?? 0
+        )
     }
 
     public var body: some View {
-        let scrub = ScrubPosition(
-            sequence: model.historicalState?.lastSequence ?? (model.state?.lastSequence ?? 0),
-            lastSequence: model.state?.lastSequence ?? 0
-        )
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Project \(model.projectID.rawValue.uuidString.prefix(8))")
-                    .font(.title2.weight(.semibold))
-                Spacer()
-                TimelineStrip(segments: TimelineViewModel.segments(from: rendered))
-            }
-
-            if scrub.isHistorical {
-                // Unmistakable historical mode (docs 06): muted, labeled,
-                // one action from Return to Now.
-                HStack {
-                    Label("HISTORICAL VIEW — recorded state at #\(scrub.sequence); inspection only", systemImage: "clock.arrow.circlepath")
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Return to Now") { model.returnToNow() }
-                        .keyboardShortcut(.cancelAction)
+        DesktopCanvas {
+            VStack(spacing: 14) {
+                headerBar
+                ConciergeBar(model: model, input: $conciergeInput)
+                if model.layout.showsTimelineRuler {
+                    timelineBand
                 }
-                .padding(10)
-                .background(AIOSDesign.historicalSurface(colorScheme), in: RoundedRectangle(cornerRadius: 8))
+                if scrub.isHistorical {
+                    historyBanner
+                }
+                workspace
+                ExpertDock()
             }
+            .padding(20)
+        }
+        .frame(minWidth: 1200, minHeight: 760)
+    }
 
+    // MARK: Header
+
+    private var headerBar: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "cubetransparent")
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Demo Project")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                Text("Project \(model.projectID.rawValue.uuidString.prefix(8)) · AI Work Runtime")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if model.stopEngaged {
+                Label("Emergency Stop", systemImage: "octagon.fill")
+                    .foregroundStyle(.red)
+                    .font(.headline)
+            }
+            TimelineStrip(segments: TimelineViewModel.segments(from: rendered))
+            Text(clock, style: .time)
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+        .onAppear {
+            Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
+                Task { @MainActor in clock = Date() }
+            }
+        }
+    }
+
+    // MARK: Concierge
+
+    private struct ConciergeBar: View {
+        @ObservedObject var model: AppModel
+        @Binding var input: String
+
+        var body: some View {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.tint)
+                TextField("Ask, command, or capture —  goal: · note: · inbox: · ask:", text: $input)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .onSubmit {
+                        let raw = input
+                        input = ""
+                        Task { await model.submitConcierge(raw) }
+                    }
+                    .accessibilityLabel("Concierge input")
+                if let last = model.lastRouting {
+                    Text(last)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.primary.opacity(0.1), lineWidth: 1))
+        }
+    }
+
+    // MARK: Timeline band
+
+    private var timelineBand: some View {
+        GlassPanel(title: "Timeline", symbol: "clock.arrow.circlepath", tint: .indigo) {
             TimelineRulerView(model: model)
-
             HStack(spacing: 16) {
-                Text("Timeline scrub").font(.caption)
+                Text("Scrub").font(.caption)
                 Slider(
                     value: Binding(
                         get: { Double(model.historicalState?.lastSequence ?? model.state?.lastSequence ?? 0) },
@@ -121,172 +197,137 @@ public struct ProjectDesktopView: View {
                 )
                 .disabled(model.state == nil)
                 .accessibilityLabel("Timeline position \(scrub.sequence) of \(scrub.lastSequence)")
-                .accessibilityHint(scrub.isHistorical ? "Viewing recorded history" : "Viewing the live present")
                 Text("#\(scrub.sequence)/\(scrub.lastSequence)")
                     .font(.caption.monospaced())
                     .foregroundStyle(.tertiary)
             }
+        }
+        .frame(height: 140)
+    }
 
-            ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: model.layout.cardScale.minimumCardWidth), spacing: 12)], spacing: 12) {
-                    ForEach(orderedCards(from: rendered)) { card in
-                        CardView(card: card)
-                            .draggable(card.title)
-                            .dropDestination(for: String.self) { items, _ in
-                                guard let dragged = items.first else { return false }
-                                let current = orderedCards(from: rendered).map(\.title)
-                                let reordered = CardOrdering.move(dragged, toAfter: card.title, in: current)
-                                guard reordered != current else { return false }
-                                Task { await model.saveCardOrder(reordered) }
-                                return true
-                            }
-                            .contextMenu {
-                                CardContextMenu(model: model, card: card)
-                            }
-                    }
-                    DepthPanels(model: model, rendered: rendered)
-                }
+    /// Snap granularity: 1 for short journals; coarser steps keep 50k-event
+    /// journals scrubable.
+    private var scrubStep: Double {
+        let total = model.state?.lastSequence ?? 0
+        if total < 100 { return 1 }
+        if total < 1_000 { return 5 }
+        if total < 10_000 { return 25 }
+        return 100
+    }
+
+    private var historyBanner: some View {        HStack {
+            Label("HISTORICAL VIEW — recorded state at #\(scrub.sequence); inspection only", systemImage: "clock.arrow.circlepath")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button("Return to Now") { model.returnToNow() }
+                .keyboardShortcut(.cancelAction)
+        }
+        .padding(10)
+        .background(AIOSDesign.historicalSurface(colorScheme), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    // MARK: Workspace: three columns
+
+    private var workspace: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(spacing: 14) {
+                NeedsYouPanel(model: model, summary: NeedsYouViewModel.summary(from: rendered))
+                CheckpointsPanel(model: model, state: rendered)
+                HealthPanel(health: ProjectHealth.compute(from: rendered))
+            }
+            VStack(spacing: 14) {
+                ActivityCenterPanel(model: model, rendered: rendered)
+                FuturePanel(items: FutureViewModel.items(from: rendered))
+                NotesInboxPanel(model: model)
+            }
+            VStack(spacing: 14) {
+                ChloeDeckView(model: model)
             }
         }
-        .padding(16)
-        .frame(minWidth: 720, minHeight: 480)
+        .frame(maxHeight: .infinity)
     }
-}
 
-/// Depth panels with teeth: Needs You resolves, Notes/Inbox promote,
-/// checkpoints branch and restore, live activities stop. Every button maps
-/// to a journaling engine call; nothing decorative.
-struct DepthPanels: View {
-    @ObservedObject var model: AppModel
-    let rendered: ProjectState
+    private struct HealthPanel: View {
+        let health: ProjectHealth
 
-    var body: some View {
-        let needsYou = NeedsYouViewModel.summary(from: rendered)
-        let health = ProjectHealth.compute(from: rendered)
-        let future = FutureViewModel.items(from: rendered)
-
-        Group {
-            NeedsYouPanel(model: model, summary: needsYou)
-            CardView(card: CardSummary(
-                title: "Project Health",
-                body: HealthViewModel.lines(from: health).joined(separator: " · "),
-                whyHere: "evidence-based coverage, not a confidence score"
-            ))
-            CardView(card: CardSummary(
-                title: future.isEmpty ? "Projected Future (empty)" : "Projected Future",
-                body: future.isEmpty
-                    ? "no planned tasks"
-                    : future.map { "\($0.objective) (\($0.dependencyCount) deps)" }.joined(separator: " · "),
-                whyHere: "the current plan — has not happened"
-            ))
-            NotesInboxPanel(model: model)
-            CheckpointsPanel(model: model, state: rendered)
-            VoicePanel(model: model)
-            ActivityCenterPanel(model: model, rendered: rendered)
-            ForEach(ExpertTeam.permanentTeam(), id: \.identity) { expert in
-                ExpertCard(model: model, role: expert.role)
-            }
-            ChloeDeckView(model: model)
-        }
-    }
-}
-
-struct NeedsYouPanel: View {
-    @ObservedObject var model: AppModel
-    let summary: NeedsYouSummary
-    @State private var answers: [String: String] = [:]
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Needs You").font(.headline)
-                Spacer()
-                Text(summary.active.isEmpty ? "queue empty (\(summary.resolvedCount) resolved)" : "\(summary.active.count) open")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            ForEach(summary.active, id: \.question) { entry in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("\(entry.subject)\(entry.blocking ? " [blocking]" : "")").font(.subheadline.weight(.medium))
-                    Text(entry.question).font(.caption).foregroundStyle(.secondary)
-                    HStack {
-                        TextField("your decision", text: Binding(
-                            get: { answers[entry.question] ?? "" },
-                            set: { answers[entry.question] = $0 }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                        Button("Resolve") {
-                            let answer = answers[entry.question] ?? "(no answer given)"
-                            Task {
-                                await model.resolveNeedsYou(
-                                    subject: entry.subject, question: entry.question, answer: answer
-                                )
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .disabled((answers[entry.question] ?? "").isEmpty)
-                        .accessibilityLabel("Resolve decision: \(entry.subject)")
+        var body: some View {
+            GlassPanel(title: "Project Health", symbol: "pulse", tint: .mint) {
+                VStack(alignment: .leading, spacing: 6) {
+                    countMeter("Goal criteria", value: health.goalCriteriaCovered, of: max(health.goalCriteriaTotal, 1), tint: .mint)
+                    fractionMeter("Verification", value: health.verificationCoverage, tint: .green)
+                    HStack(spacing: 10) {
+                        chip("Blockers \(health.blockers)", tone: health.blockers > 0 ? .red : .secondary)
+                        chip("Decisions \(health.unresolvedDecisions)", tone: health.unresolvedDecisions > 0 ? .orange : .secondary)
+                        chip("Gaps \(health.suspectedGaps)", tone: health.suspectedGaps > 0 ? .orange : .secondary)
+                        chip("Stale \(health.staleEvidence)", tone: health.staleEvidence > 0 ? .red : .secondary)
                     }
                 }
-                .padding(8)
-                .background(.background.tertiary, in: RoundedRectangle(cornerRadius: 6))
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
-        .accessibilityElement(children: .combine)
-    }
-}
 
-/// Expert Card: direct conversation with one expert over a real worker
-/// session (docs 06/07). Output stays generatedContent.
-struct ExpertCard: View {
-    @ObservedObject var model: AppModel
-    let role: ExpertRole
-    @State private var chat: ExpertChatModel?
-    @State private var input = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Image(systemName: "person.crop.circle")
-                Text("Expert — \(displayName)").font(.headline)
-                Spacer()
-                if chat == nil {
-                    Button("Consult") { start() }
-                } else if chat?.isRunning != true {
-                    Button("End") { Task { await chat?.end(); chat = nil } }
-                } else {
-                    ProgressView().controlSize(.small)
-                }
-            }
-            if let chat {
-                ForEach(chat.transcript.suffix(6)) { message in
-                    Text(message.text)
-                        .font(.caption)
-                        .foregroundStyle(message.role == .assistant ? .primary : .secondary)
-                        .lineLimit(3)
-                        .padding(6)
-                        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 6))
-                }
+        private func countMeter(_ label: String, value: Int, of total: Int, tint: Color) -> some View {
+            VStack(alignment: .leading, spacing: 2) {
                 HStack {
-                    TextField("ask…", text: $input)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit(send)
-                    Button("Send", action: send)
-                        .disabled(input.isEmpty || chat.isRunning)
+                    Text(label).font(.caption)
+                    Spacer()
+                    Text("\(value)/\(total)").font(.caption.monospaced()).foregroundStyle(.secondary)
                 }
-            } else {
-                Text("stable identity above interchangeable model backends").font(.caption2).foregroundStyle(.tertiary)
+                ProgressView(value: Double(value), total: Double(total))
+                    .tint(tint)
             }
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
+
+        private func fractionMeter(_ label: String, value: Double, tint: Color) -> some View {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(label).font(.caption)
+                    Spacer()
+                    Text("\(Int(value * 100))%").font(.caption.monospaced()).foregroundStyle(.secondary)
+                }
+                ProgressView(value: value)
+                    .tint(tint)
+            }
+        }
+
+        private func chip(_ text: String, tone: Color) -> some View {
+            Text(text)
+                .font(.caption2.weight(.medium))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(tone.opacity(0.14), in: Capsule())
+                .foregroundStyle(tone == .secondary ? Color.secondary : tone)
+        }
     }
 
-    private var displayName: String {
-        switch role {
+    private struct FuturePanel: View {
+        let items: [FutureItem]
+
+        var body: some View {
+            GlassPanel(
+                title: "Projected Future", symbol: "calendar.badge.clock", tint: .blue,
+                trailing: AnyView(Text("planned — has not happened").font(.caption2).foregroundStyle(.tertiary))
+            ) {
+                if items.isEmpty {
+                    Text("no planned tasks").font(.caption).foregroundStyle(.tertiary)
+                }
+                ForEach(items) { item in
+                    HStack(spacing: 8) {
+                        Image(systemName: "circle.dashed").foregroundStyle(.tint)
+                        Text(item.objective).font(.callout).lineLimit(1)
+                        Spacer()
+                        Text(item.ownerDisplay).font(.caption2).foregroundStyle(.tertiary)
+                    }
+                    .padding(.vertical, 2)
+                }
+            }
+        }
+    }
+}
+
+extension FutureItem {
+    var ownerDisplay: String {
+        switch owner {
         case .linus: "Linus"
         case .jobs: "Jobs"
         case .einstein: "Einstein"
@@ -297,285 +338,62 @@ struct ExpertCard: View {
         case .specialist(let name): name
         }
     }
+}
 
-    private func start() {
-        chat = ExpertChatModel(expertRole: role)
-        Task {
-            let packageRoot = URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-            try? await chat?.startConsultation(workerURL: packageRoot.appendingPathComponent(".build/debug/InferenceWorker"))
+// MARK: - Expert dock (bottom of the desktop)
+
+struct ExpertDock: View {
+    var body: some View {
+        HStack(spacing: 18) {
+            ForEach(ExpertTeam.permanentTeam(), id: \.identity) { expert in
+                ExpertDockItem(expert: expert)
+            }
         }
-    }
-
-    private func send() {
-        let text = input
-        guard !text.isEmpty, let chat else { return }
-        input = ""
-        Task { _ = try? await chat.send(userText: text) }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
     }
 }
 
-struct NotesInboxPanel: View {
-    @ObservedObject var model: AppModel
-    @State private var notes: [NoteRecord] = []
-    @State private var inbox: [InboxItemRecord] = []
-    @State private var newNote = ""
+struct ExpertDockItem: View {
+    let expert: Expert
+
+    private var initials: String {
+        String(expert.displayName.prefix(2))
+    }
+
+    private var ring: LinearGradient {
+        switch expert.role {
+        case .linus: LinearGradient(colors: [.blue, .cyan], startPoint: .top, endPoint: .bottom)
+        case .jobs: LinearGradient(colors: [.purple, .pink], startPoint: .top, endPoint: .bottom)
+        case .einstein: LinearGradient(colors: [.teal, .mint], startPoint: .top, endPoint: .bottom)
+        case .sherlock: LinearGradient(colors: [.orange, .yellow], startPoint: .top, endPoint: .bottom)
+        case .henson: LinearGradient(colors: [.pink, .red], startPoint: .top, endPoint: .bottom)
+        case .chloe: LinearGradient(colors: [.indigo, .blue], startPoint: .top, endPoint: .bottom)
+        case .concierge: LinearGradient(colors: [.gray, .secondary], startPoint: .top, endPoint: .bottom)
+        case .specialist: LinearGradient(colors: [.gray, .secondary], startPoint: .top, endPoint: .bottom)
+        }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Desk Notes · Inbox").font(.headline)
-            HStack {
-                TextField("new note", text: $newNote)
-                    .textFieldStyle(.roundedBorder)
-                Button("Add") {
-                    let text = newNote
-                    newNote = ""
-                    Task {
-                        _ = await model.createNote(text: text)
-                        await reload()
-                    }
-                }
-                .disabled(newNote.isEmpty)
+        VStack(spacing: 4) {
+            ZStack {
+                Circle().strokeBorder(ring, lineWidth: 2.5)
+                    .frame(width: 44, height: 44)
+                Text(initials)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.primary)
             }
-            ForEach(notes) { note in
-                HStack {
-                    Text(note.text).font(.callout).lineLimit(2)
-                    Spacer()
-                    Button("→ Goal") { Task { await model.promoteNote(id: note.id, target: "GOAL"); await reload() } }
-                    Button("→ Pin") { Task { await model.promoteNote(id: note.id, target: "TIMELINE_PIN"); await reload() } }
-                }
-                .buttonStyle(.bordered)
-                .font(.caption)
-            }
-            ForEach(inbox.filter { !$0.discarded }) { item in
-                HStack {
-                    Text(item.text).font(.callout).foregroundStyle(.secondary).lineLimit(2)
-                    Spacer()
-                    Button("→ Task") { Task { await model.promoteInboxItem(id: item.id, target: "TASK"); await reload() } }
-                    Button("Discard") { Task { await model.promoteInboxItem(id: item.id, target: "DISCARDED"); await reload() } }
-                }
-                .buttonStyle(.bordered)
-                .font(.caption)
-            }
-            if notes.isEmpty && inbox.isEmpty {
-                Text("nothing captured").font(.caption).foregroundStyle(.tertiary)
-            }
+            Text(expert.displayName)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+            Text(expert.domain)
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
         }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
-        .task { await reload() }
-    }
-
-    private func reload() async {
-        notes = await model.loadNotes()
-        inbox = await model.loadInbox()
-    }
-}
-
-struct CheckpointsPanel: View {
-    @ObservedObject var model: AppModel
-    let state: ProjectState
-    @State private var branchReason = ""
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Checkpoints").font(.headline)
-                Spacer()
-                Button("Checkpoint Now") {
-                    Task { _ = await model.createCheckpoint(note: "from shell"); await model.refresh() }
-                }
-            }
-            ForEach(state.checkpoints, id: \.self) { checkpointID in
-                HStack {
-                    Text(checkpointID).font(.caption.monospaced())
-                    Spacer()
-                    TextField("branch reason", text: $branchReason)
-                        .textFieldStyle(.roundedBorder)
-                        .frame(maxWidth: 160)
-                    Button("Branch") {
-                        let reason = branchReason.isEmpty ? "branched from shell" : branchReason
-                        branchReason = ""
-                        Task { _ = await model.branchFrom(checkpointID: checkpointID, reason: reason) }
-                    }
-                    Button("Restore") {
-                        Task { await model.restore(checkpointID: checkpointID, note: "restored from shell") }
-                    }
-                }
-                .buttonStyle(.bordered)
-                .font(.caption)
-            }
-            ForEach(state.branches, id: \.newPlanRevisionID) { branch in
-                Text("branch → \(branch.newPlanRevisionID.rawValue.uuidString.prefix(8)) from \(branch.fromCheckpointID): \(branch.reason)")
-                    .font(.caption2).foregroundStyle(.tertiary)
-            }
-            if state.checkpoints.isEmpty {
-                Text("no checkpoints yet").font(.caption).foregroundStyle(.tertiary)
-            }
-        }
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
-    }
-}
-
-public struct HomeView: View {
-    @ObservedObject var model: AppModel
-    @State private var conciergeInput = ""
-
-    public init(model: AppModel) {
-        self.model = model
-    }
-
-    public var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("AI Work Runtime").font(.title.weight(.bold))
-            HStack {
-                Image(systemName: "sparkles")
-                TextField("goal: … / note: … / inbox: … / ask: …", text: $conciergeInput)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit {
-                        let raw = conciergeInput
-                        conciergeInput = ""
-                        Task { await model.submitConcierge(raw) }
-                    }
-                if let last = model.lastRouting {
-                    Text(last).font(.caption).foregroundStyle(.tertiary).lineLimit(1)
-                }
-            }
-            if model.stopEngaged {
-                Label("Emergency Stop engaged — automation halted", systemImage: "octagon.fill")
-                    .foregroundStyle(.red)
-                    .font(.headline)
-            }
-            ProjectDesktopView(model: model)
-            Spacer(minLength: 0)
-        }
-        .padding(16)
-        .frame(minWidth: 720, minHeight: 520)
-        .background(
-            // Keyboard-first navigation (docs 06): declared shortcuts.
-            Group {
-                Button("p1") { Task { await model.returnToNow() } }.keyboardShortcut(.cancelAction)
-            }
-        )
-    }
-}
-
-/// Event ruler with branch lanes over the scrub range (docs 06: branches
-/// as lanes; the playhead snaps to meaningful history).
-struct TimelineRulerView: View {
-    @ObservedObject var model: AppModel
-    @State private var ruler: TimelineRuler = TimelineRuler(totalEvents: 0, marks: [], lanes: [])
-
-    var body: some View {
-        let position = model.historicalState?.lastSequence ?? model.state?.lastSequence ?? 0
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 2) {
-                ForEach(ruler.marks) { mark in
-                    Rectangle()
-                        .fill(color(for: mark.label))
-                        .frame(width: 2, height: mark.sequence == position ? 18 : 10)
-                        .help("\(mark.label) @#\(mark.sequence)")
-                }
-                Spacer(minLength: 0)
-            }
-            .frame(height: 20)
-            ForEach(ruler.lanes) { lane in
-                HStack(spacing: 6) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(lane.branchID == nil ? Color.accentColor.opacity(0.5) : Color.purple.opacity(0.5))
-                        .frame(width: laneWidth(for: lane), height: 4)
-                    Text(lane.label)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                }
-            }
-            if let nearest = TimelineRulerViewModel.nearestMark(to: position, in: ruler.marks) {
-                Text("nearest: \(nearest.label) @#\(nearest.sequence)")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .task {
-            ruler = TimelineRulerViewModel.build(from: model.storeForRuler)
-        }
-        .onChange(of: model.state?.lastSequence) { _ in
-            ruler = TimelineRulerViewModel.build(from: model.storeForRuler)
-        }
-    }
-
-    private func color(for label: String) -> Color {
-        switch label {
-        case "Verified": return .green
-        case "Verification failed": return .red
-        case "Crash": return .orange
-        case "Branch", "Restored", "Checkpoint": return .purple
-        default: return .accentColor
-        }
-    }
-
-    private func laneWidth(for lane: BranchLane) -> CGFloat {
-        let total = max(Double(ruler.totalEvents), 1)
-        let start = Double(lane.startsAtSequence) / total
-        let end = Double(lane.endsAtSequence ?? ruler.totalEvents) / total
-        return max(24, (end - start) * 320)
-    }
-}
-
-/// Right-click menu per card — real actions only (docs 06): copy, pin,
-/// and window-scale controls persist per project.
-struct CardContextMenu: View {
-    @ObservedObject var model: AppModel
-    let card: CardSummary
-
-    var body: some View {
-        Button("Copy Summary") {
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(card.body, forType: .string)
-        }
-        Button(model.layout.pinnedCardIDs.contains(card.title) ? "Unpin Card" : "Pin Card") {
-            Task { await togglePin(card.title) }
-        }
-        Divider()
-        Picker("Card Size", selection: Binding(
-            get: { model.layout.cardScale },
-            set: { scale in Task { await setScale(scale) } }
-        )) {
-            Text("Compact").tag(CardScale.compact)
-            Text("Comfortable").tag(CardScale.comfortable)
-            Text("Spacious").tag(CardScale.spacious)
-        }
-        Divider()
-        Text(card.whyHere).font(.caption)
-    }
-
-    private func togglePin(_ title: String) async {
-        var layout = model.layout
-        if let index = layout.pinnedCardIDs.firstIndex(of: title) {
-            layout.pinnedCardIDs.remove(at: index)
-        } else {
-            layout.pinnedCardIDs.append(title)
-        }
-        await model.saveLayout(layout)
-    }
-
-    private func setScale(_ scale: CardScale) async {
-        var layout = model.layout
-        layout.cardScale = scale
-        await model.saveLayout(layout)
-    }
-}
-
-extension ProjectDesktopView {
-    /// Cards in the user's persisted arrangement (pinned first).
-    func orderedCards(from state: ProjectState) -> [CardSummary] {
-        let cards = CardGridViewModel.cards(from: state)
-        let ordering = CardOrdering(order: model.session.cardOrder, pinned: model.layout.pinnedCardIDs)
-        let byTitle = Dictionary(cards.map { ($0.title, $0) }, uniquingKeysWith: { first, _ in first })
-        let orderedTitles = CardOrdering.sorted(available: cards.map(\.title), ordering: ordering)
-        return orderedTitles.compactMap { byTitle[$0] }
+        .frame(maxWidth: .infinity)
+        .help("\(expert.displayName) — \(expert.domain): \(expert.responsibilities.joined(separator: ", "))")
+        .accessibilityElement(children: .combine)
     }
 }

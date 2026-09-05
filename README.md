@@ -70,6 +70,12 @@ the design history; `docs/` holds the full architecture packet.
   unmistakable from now. Expert Cards hold real conversations over live
   worker sessions (resident model when available, echo double otherwise —
   always labeled).
+- **Desktop-environment shell**: full-bleed wallpaper canvas with glassy
+  panels (light/dark adaptive), a prominent Concierge bar, timeline band
+  with event ruler and branch lanes, three-panel workspace, and an expert
+  dock of all seven permanent identities with color-ringed avatars. Launches
+  fullscreen; discovers projects automatically (demo journal seeded via
+  `swift run DemoSeed`).
 - **OS layer**: native macOS menu bar (File/View/Desktop/Control — every
   command routes through the tested CommandRouter), a menu-bar status item
   with live needs-you/activity counts and a deterministic Emergency Stop

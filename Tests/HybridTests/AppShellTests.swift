@@ -40,8 +40,8 @@ import Testing
 
 @Test func homeViewModelSummarizesDiscoveredProjects() {
     let projects = [
-        DiscoveredProject(projectID: ProjectID(), journalURL: URL(fileURLWithPath: "/tmp/a")),
-        DiscoveredProject(projectID: ProjectID(), journalURL: URL(fileURLWithPath: "/tmp/b")),
+        DiscoveredProject(projectID: ProjectID(), journalURL: URL(fileURLWithPath: "/tmp/a"), root: URL(fileURLWithPath: "/tmp")),
+        DiscoveredProject(projectID: ProjectID(), journalURL: URL(fileURLWithPath: "/tmp/b"), root: URL(fileURLWithPath: "/tmp")),
     ]
     let summary = HomeViewModel.summary(projects: projects, activeIndex: 1)
     #expect(summary.titles.count == 2)

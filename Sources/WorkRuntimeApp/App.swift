@@ -185,17 +185,22 @@ struct RootView: View {
     }
 
     private func select(_ project: DiscoveredProject) async {
-        let root = project.journalURL
-            .deletingLastPathComponent() // journal/
-            .deletingLastPathComponent() // <uuid>/
-        guard let store = try? JournalStore(projectID: project.projectID, rootDirectory: root) else { return }
+        guard let store = try? JournalStore(projectID: project.projectID, rootDirectory: project.root) else { return }
         let loaded = AppModel(store: store)
         await loaded.refresh()
         model = loaded
         commandBus.bind(model: loaded)
 
+        // Present as the desktop environment it is — once the window exists.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            if let window = NSApplication.shared.windows.first,
+               !window.styleMask.contains(.fullScreen) {
+                window.toggleFullScreen(nil)
+            }
+        }
+
         // Desktop switching restores each project's session state.
-        let session = (try? DesktopSessionStore(storageRoot: root).load(for: project.projectID)) ?? .default
+        let session = (try? DesktopSessionStore(storageRoot: project.root).load(for: project.projectID)) ?? .default
         if let scrub = session.lastScrubSequence, scrub < (loaded.state?.lastSequence ?? 0) {
             loaded.enterHistorical(at: scrub)
         }
@@ -210,8 +215,22 @@ struct RootView: View {
     }
 
     private func loadIfNeeded() async {
-        guard model == nil, let rootPath = options.journalRoot else { return }
-        let root = URL(fileURLWithPath: rootPath, isDirectory: true)
+        guard model == nil else { return }
+        // Journal root: explicit --journal flag, else demo projects if
+        // seeded, else the standard app-support root. Launch just works.
+        let root: URL
+        if let rootPath = options.journalRoot {
+            root = URL(fileURLWithPath: rootPath, isDirectory: true)
+        } else {
+            let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            let demo = support.appendingPathComponent("AIOS/demo-projects", isDirectory: true)
+            let standard = support.appendingPathComponent("AIOS/projects", isDirectory: true)
+            if FileManager.default.fileExists(atPath: demo.path) {
+                root = demo
+            } else {
+                root = standard
+            }
+        }
         let discovered = ProjectDiscovery.projects(under: root)
         projects = discovered
         guard let first = discovered.first else { return }

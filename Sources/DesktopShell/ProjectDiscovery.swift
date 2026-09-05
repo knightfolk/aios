@@ -10,10 +10,13 @@ public struct DiscoveredProject: Sendable, Equatable, Identifiable {
     public var id: ProjectID { projectID }
     public var projectID: ProjectID
     public var journalURL: URL
+    /// The journal ROOT (parent of the <uuid> dir) — the store's rootDirectory.
+    public var root: URL
 
-    public init(projectID: ProjectID, journalURL: URL) {
+    public init(projectID: ProjectID, journalURL: URL, root: URL) {
         self.projectID = projectID
         self.journalURL = journalURL
+        self.root = root
     }
 }
 
@@ -30,7 +33,13 @@ public enum ProjectDiscovery {
             let journal = entry.appendingPathComponent("journal", isDirectory: true)
                 .appendingPathComponent("events.journal")
             guard FileManager.default.fileExists(atPath: journal.path) else { return nil }
-            return DiscoveredProject(projectID: ProjectID(rawValue: uuid), journalURL: journal)
+            // root = the journal root (parent of <uuid>) — the store's
+            // rootDirectory, from which it derives <uuid>/journal/events.journal.
+            return DiscoveredProject(
+                projectID: ProjectID(rawValue: uuid),
+                journalURL: journal,
+                root: entry.deletingLastPathComponent()
+            )
         }
         .sorted { $0.projectID.rawValue.uuidString < $1.projectID.rawValue.uuidString }
     }
