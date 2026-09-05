@@ -1,5 +1,6 @@
 import Foundation
 import AIOSCore
+import ModelRuntime
 
 /// Versioned wire messages exchanged between the host and worker processes
 /// over framed stdio. This is the only place ad hoc JSON is tolerated — it is
@@ -16,6 +17,9 @@ public enum WireMessage: Codable, Sendable, Hashable {
     case cancel(String)
     case execute(ShellExecutionRequest)
     case executionFinished(ShellExecutionResult)
+    case generationRequest(GenerationRequest)
+    case generationChunk(GenerationChunk)
+    case generationDone(GenerationResult)
     case shutdown
 }
 

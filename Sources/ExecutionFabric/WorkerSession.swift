@@ -1,6 +1,7 @@
 import Foundation
 import AIOSCore
 import EventJournal
+import ModelRuntime
 
 /// Host-side session with one worker process. Owns process lifecycle, the
 /// framed stdio protocol, heartbeat monitoring, and crash detection. Crashes
@@ -11,6 +12,8 @@ public actor WorkerSession {
         case actionRequest(ActionRequest)
         case workResult(WorkResult)
         case executionFinished(ShellExecutionResult)
+        case generationChunk(GenerationChunk)
+        case generationDone(GenerationResult)
         case log(String)
         case heartbeatReceived(workerID: String)
         case hungDetected(workerID: String)
@@ -221,10 +224,14 @@ public actor WorkerSession {
             emit(.heartbeatReceived(workerID: beat.workerID))
         case .log(let text):
             emit(.log(text))
-        case .cancel, .shutdown, .execute:
+        case .cancel, .shutdown, .execute, .generationRequest:
             break
         case .executionFinished(let result):
             emit(.executionFinished(result))
+        case .generationChunk(let chunk):
+            emit(.generationChunk(chunk))
+        case .generationDone(let result):
+            emit(.generationDone(result))
         }
     }
 
