@@ -77,6 +77,13 @@ the design history; `docs/` holds the full architecture packet.
   pins, scrub position, layout) on switch, drag-and-drop card arrangement,
   right-click context menus (copy/pin/card-size), and window autosave with
   proper resizability.
+- **Chloe Deck** (animated, constitution-honest): a ghost hand whose
+  gesture mirrors real lease/action state (hovering, reaching, shadow-mime
+  that never lands, uncertain hold, user-outranked recoil, frozen on
+  Emergency Stop), an authority metronome that swings only while a live
+  lease breathes and stops dead when the user outranks automation, and an
+  action constellation where UNKNOWN outcomes keep pulsing until
+  reconciled. Reduce Motion swaps every animation for static glyphs.
 - **Minimal truthful SwiftUI shell**: cards from projections, Past/Now/Future/
   Gaps timeline, deterministic Emergency Stop.
 - **Desktop depth**: resolvable Needs You queue, evidence-based Project
