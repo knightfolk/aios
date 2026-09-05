@@ -138,7 +138,9 @@ public final class AppModel: ObservableObject {
     }
 
     public func refresh() async {
-        state = try? Projection.replayAll(store)
+        // Snapshot-accelerated: folds only records past the snapshot
+        // checkpoint instead of replaying the whole journal.
+        state = try? Projection.loadUsingSnapshot(store)
         stopEngaged = await emergencyStop.engaged
     }
 
