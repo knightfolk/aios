@@ -13,6 +13,7 @@ public final class AppModel: ObservableObject {
     @Published public private(set) var historicalState: ProjectState?
     @Published public private(set) var stopEngaged = false
     @Published public private(set) var lastRouting: String?
+    @Published public private(set) var layout: ProjectLayout = .default
 
     public let projectID: ProjectID
     private let store: JournalStore
@@ -29,6 +30,17 @@ public final class AppModel: ObservableObject {
         self.notes = NotesStore(journal: store, storageRoot: store.rootDirectory)
         self.inbox = InboxStore(journal: store, storageRoot: store.rootDirectory)
         self.checkpoints = CheckpointStore(journal: store)
+        self.layoutStore = ProjectLayoutStore(storageRoot: store.rootDirectory)
+        if let stored = try? layoutStore.load(for: store.projectID) {
+            layout = stored
+        }
+    }
+
+    private let layoutStore: ProjectLayoutStore
+
+    public func saveLayout(_ newLayout: ProjectLayout) async {
+        layout = newLayout
+        try? layoutStore.save(newLayout, for: store.projectID)
     }
 
     /// Concierge front desk: deterministic routing, journaled effects.
@@ -168,13 +180,14 @@ struct CardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(card.title).font(.headline)
+            Text(card.title)
+                .font(.system(size: AIOSDesign.fontRole("cardTitle").size, weight: AIOSDesign.fontRole("cardTitle").weight))
             Text(card.body).font(.body).foregroundStyle(.secondary)
             Text("Why: \(card.whyHere)").font(.caption).foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
+        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .combine)
     }
 }
@@ -215,7 +228,7 @@ public struct ProjectDesktopView: View {
                         .keyboardShortcut(.cancelAction)
                 }
                 .padding(10)
-                .background(Color.gray.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
+                .background(AIOSDesign.token(.surfaceHistory), in: RoundedRectangle(cornerRadius: 8))
             }
 
             TimelineRulerView(model: model)
@@ -236,7 +249,7 @@ public struct ProjectDesktopView: View {
             }
 
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 12)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: model.layout.cardScale.minimumCardWidth), spacing: 12)], spacing: 12) {
                     ForEach(CardGridViewModel.cards(from: rendered)) { card in
                         CardView(card: card)
                     }
@@ -322,7 +335,7 @@ struct NeedsYouPanel: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
+        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .combine)
     }
 }
@@ -375,7 +388,7 @@ struct NotesInboxPanel: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
+        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
         .task { await reload() }
     }
 
@@ -428,7 +441,7 @@ struct CheckpointsPanel: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
+        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
     }
 }
 
