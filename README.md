@@ -136,7 +136,7 @@ share: `AIOS_ZAI_KEY=... swift run ProviderSetup zai`.
 swift run WorkRuntimeApp --journal <directory-containing-<uuid>-journals>
 ```
 
-## Honest limitations (as of Phase 4)
+## Honest limitations (as of the review round)
 
 - No tool-calling from model brains yet: local/cloud generation produces
   typed `generatedContent` claims only; real effects still flow through the
@@ -146,6 +146,17 @@ swift run WorkRuntimeApp --journal <directory-containing-<uuid>-journals>
 - Keychain-stored keys are readable only by processes the user approves
   (unsigned CLI binaries prompt); the app target will carry proper
   keychain-access groups.
+- **Review-round hardening**: journal appends in state-transition paths
+  now propagate failures (an unwritable journal refuses new actions and
+  lease grants instead of silently proceeding); AppModel refresh is
+  snapshot-accelerated; the bootstrap stub is gone; AppModel lives in its
+  own file; all seven permanent experts render as cards; the timeline
+  scrub snaps at scale; historical surfaces are hue-distinct in dark and
+  light mode; interactive controls carry accessibility labels; an
+  onboarding empty state greets journal-less launches; an Activity Center
+  panel shows live attempts with deterministic stop; the quality loop
+  (telemetry writer + empirical recommender) and ContextCompiler are wired
+  into the runtime; a voice surface panel routes through the VoiceSession.
 - **Chloe computer control (Phase 4)**: single-owner lease (journaled
   grant/release/deny/expiry), Accessibility-first adapter (activate app,
   read focused element, type text — requires the runner to hold the
