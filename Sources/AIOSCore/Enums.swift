@@ -125,6 +125,19 @@ public enum WorkStatus: String, Codable, Sendable, Hashable {
     case failed = "FAILED"
 }
 
+/// Logical task state (docs 05). A task reaches `complete` only through a
+/// passed verification event — never from a worker's self-report.
+public enum TaskLogicalState: String, Codable, Sendable, CaseIterable, Hashable {
+    case pending = "PENDING"
+    case ready = "READY"
+    case inProgress = "IN_PROGRESS"
+    case blocked = "BLOCKED"
+    case awaitingVerification = "AWAITING_VERIFICATION"
+    case complete = "COMPLETE"
+    case failed = "FAILED"
+    case cancelled = "CANCELLED"
+}
+
 // MARK: - Artifacts and sources
 
 public enum ArtifactKind: String, Codable, Sendable, CaseIterable, Hashable {
