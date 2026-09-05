@@ -231,10 +231,14 @@ public struct EvidenceCreatedPayload: Codable, Sendable, Hashable {
 public struct EvidenceInvalidatedPayload: Codable, Sendable, Hashable {
     public var evidenceID: EvidenceID
     public var reason: String
+    /// The resulting evidence status: `.stale` for artifact-change cascades,
+    /// `.invalidated` for direct retraction.
+    public var mark: EvidenceStatus
 
-    public init(evidenceID: EvidenceID, reason: String) {
+    public init(evidenceID: EvidenceID, reason: String, mark: EvidenceStatus = .invalidated) {
         self.evidenceID = evidenceID
         self.reason = reason
+        self.mark = mark
     }
 }
 

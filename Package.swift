@@ -16,9 +16,9 @@ let package = Package(
         .target(name: "SecurityKernel", dependencies: ["AIOSCore"]),
         .target(name: "ExecutionFabric", dependencies: ["AIOSCore", "EventJournal"]),
         .target(name: "ExpertRuntime", dependencies: ["AIOSCore"]),
-        .target(name: "EvidenceEngine", dependencies: ["AIOSCore"]),
+        .target(name: "EvidenceEngine", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
         .target(name: "ContextCompiler", dependencies: ["AIOSCore"]),
-        .target(name: "EvaluationEngine", dependencies: ["AIOSCore"]),
+        .target(name: "EvaluationEngine", dependencies: ["AIOSCore", "EventJournal"]),
 
         // Executables — workers and the app run out of the UI/host process.
         .executableTarget(name: "WorkRuntimeApp", dependencies: ["AIOSCore"]),
@@ -26,7 +26,7 @@ let package = Package(
         .executableTarget(name: "ToolWorker", dependencies: ["AIOSCore", "ExecutionFabric"]),
 
         // Tests
-        .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
+        .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "EvidenceEngine", "EvaluationEngine"]),
         .testTarget(name: "RecoveryTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ExecutionFabric", "Supervisor"]),
         .testTarget(name: "SecurityTests", dependencies: ["AIOSCore", "EventJournal", "SecurityKernel", "CapabilityBroker"]),
         .testTarget(name: "IntegrationTests", dependencies: ["AIOSCore"]),

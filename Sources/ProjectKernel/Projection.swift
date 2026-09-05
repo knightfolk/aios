@@ -188,7 +188,7 @@ public enum Projection {
                 next.warnings.append("evidenceInvalidated references unknown evidence \(p.evidenceID)")
                 return next
             }
-            evidence.status = .invalidated
+            evidence.status = p.mark
             next.evidence[p.evidenceID] = evidence
 
         case .verificationStarted(let p):
