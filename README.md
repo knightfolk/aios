@@ -62,6 +62,14 @@ the design history; `docs/` holds the full architecture packet.
   `ModelSelected` switches and handoff packets.
 - **Evidence engine**: revision-bound evidence with automatic staleness
   cascade; independent evaluator rejects unevidenced completion claims.
+- **Interactive desktop**: Needs You entries resolve in place; notes and
+  inbox items promote with one click; checkpoints branch and restore from
+  the shell; live activities stop deterministically. A timeline event ruler
+  shows branch lanes and snaps the playhead to meaningful history. Per-
+  project layouts persist; a semantic design-token set keeps past visually
+  unmistakable from now. Expert Cards hold real conversations over live
+  worker sessions (resident model when available, echo double otherwise —
+  always labeled).
 - **Minimal truthful SwiftUI shell**: cards from projections, Past/Now/Future/
   Gaps timeline, deterministic Emergency Stop.
 - **Desktop depth**: resolvable Needs You queue, evidence-based Project
