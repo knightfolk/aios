@@ -145,9 +145,27 @@ public final class EchoEngine: LLMEngine, @unchecked Sendable {
             {"status": "COMPLETED", "summary": "echo brain observed the write result and finished", "claims": [{"statement": "marker file written through the broker", "statementType": "GENERATED_CONTENT"}], "unresolvedAssumptions": [], "recommendedNextSteps": []}
             """
         } else {
-            payload = """
-            {"status": "COMPLETED", "summary": "echo engine acknowledged the package", "claims": [{"statement": "ECHO: \(userText.prefix(120))", "statementType": "GENERATED_CONTENT"}], "unresolvedAssumptions": [], "recommendedNextSteps": []}
-            """
+            // JSON-encode properly: interpolated prompts contain newlines
+            // that would break a hand-written literal.
+            struct SafeClaim: Codable {
+                var statement: String
+                var statementType: String
+            }
+            struct SafePayload: Codable {
+                var status: String
+                var summary: String
+                var claims: [SafeClaim]
+                var unresolvedAssumptions: [String]
+                var recommendedNextSteps: [String]
+            }
+            let safe = SafePayload(
+                status: "COMPLETED",
+                summary: "echo engine acknowledged the package",
+                claims: [SafeClaim(statement: "ECHO: \(userText.prefix(120))", statementType: "GENERATED_CONTENT")],
+                unresolvedAssumptions: [],
+                recommendedNextSteps: []
+            )
+            payload = (try? JSONEncoder().encode(safe)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
         }
         for piece in payload.split(separator: " ") {
             onChunk(String(piece) + " ")

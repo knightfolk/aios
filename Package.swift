@@ -23,7 +23,7 @@ let package = Package(
         .target(name: "ExpertRuntime", dependencies: ["AIOSCore"]),
         .target(name: "EvidenceEngine", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
         .target(name: "ContextCompiler", dependencies: ["AIOSCore"]),
-        .target(name: "DesktopShell", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
+        .target(name: "DesktopShell", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ExecutionFabric", "ModelRuntime", "MLXRuntime"]),
 
         // Phase 2 — hybrid intelligence.
         .target(name: "ModelRuntime", dependencies: ["AIOSCore"], resources: [

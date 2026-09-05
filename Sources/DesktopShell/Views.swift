@@ -290,6 +290,8 @@ struct DepthPanels: View {
             ))
             NotesInboxPanel(model: model)
             CheckpointsPanel(model: model, state: rendered)
+            ExpertCard(model: model, role: .linus)
+            ExpertCard(model: model, role: .sherlock)
         }
     }
 }
@@ -337,6 +339,83 @@ struct NeedsYouPanel: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .combine)
+    }
+}
+
+/// Expert Card: direct conversation with one expert over a real worker
+/// session (docs 06/07). Output stays generatedContent.
+struct ExpertCard: View {
+    @ObservedObject var model: AppModel
+    let role: ExpertRole
+    @State private var chat: ExpertChatModel?
+    @State private var input = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "person.crop.circle")
+                Text("Expert — \(displayName)").font(.headline)
+                Spacer()
+                if chat == nil {
+                    Button("Consult") { start() }
+                } else if chat?.isRunning != true {
+                    Button("End") { Task { await chat?.end(); chat = nil } }
+                } else {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            if let chat {
+                ForEach(chat.transcript.suffix(6)) { message in
+                    Text(message.text)
+                        .font(.caption)
+                        .foregroundStyle(message.role == .assistant ? .primary : .secondary)
+                        .lineLimit(3)
+                        .padding(6)
+                        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 6))
+                }
+                HStack {
+                    TextField("ask…", text: $input)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(send)
+                    Button("Send", action: send)
+                        .disabled(input.isEmpty || chat.isRunning)
+                }
+            } else {
+                Text("stable identity above interchangeable model backends").font(.caption2).foregroundStyle(.tertiary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(AIOSDesign.token(.surfacePanel), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var displayName: String {
+        switch role {
+        case .linus: "Linus"
+        case .jobs: "Jobs"
+        case .einstein: "Einstein"
+        case .sherlock: "Sherlock"
+        case .henson: "Henson"
+        case .chloe: "Chloe"
+        case .concierge: "Concierge"
+        case .specialist(let name): name
+        }
+    }
+
+    private func start() {
+        chat = ExpertChatModel(expertRole: role)
+        Task {
+            let packageRoot = URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            try? await chat?.startConsultation(workerURL: packageRoot.appendingPathComponent(".build/debug/InferenceWorker"))
+        }
+    }
+
+    private func send() {
+        let text = input
+        guard !text.isEmpty, let chat else { return }
+        input = ""
+        Task { _ = try? await chat.send(userText: text) }
     }
 }
 
