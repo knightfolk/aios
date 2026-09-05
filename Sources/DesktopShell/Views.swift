@@ -14,6 +14,7 @@ public final class AppModel: ObservableObject {
     @Published public private(set) var stopEngaged = false
     @Published public private(set) var lastRouting: String?
     @Published public private(set) var layout: ProjectLayout = .default
+    @Published public private(set) var session: DesktopSession = .default
 
     public let projectID: ProjectID
     private let store: JournalStore
@@ -34,9 +35,29 @@ public final class AppModel: ObservableObject {
         if let stored = try? layoutStore.load(for: store.projectID) {
             layout = stored
         }
+        self.sessionStore = DesktopSessionStore(storageRoot: store.rootDirectory)
+        if let storedSession = try? sessionStore.load(for: store.projectID) {
+            session = storedSession
+        }
     }
 
     private let layoutStore: ProjectLayoutStore
+    private let sessionStore: DesktopSessionStore
+
+    /// Drag-and-drop persistence: the new arrangement lands in the session.
+    public func saveCardOrder(_ order: [String]) async {
+        var updated = session
+        updated.cardOrder = order
+        session = updated
+        try? sessionStore.save(updated, for: store.projectID)
+    }
+
+    public func saveScrubPosition(_ sequence: UInt64?) async {
+        var updated = session
+        updated.lastScrubSequence = sequence
+        session = updated
+        try? sessionStore.save(updated, for: store.projectID)
+    }
 
     public func saveLayout(_ newLayout: ProjectLayout) async {
         layout = newLayout
@@ -124,10 +145,12 @@ public final class AppModel: ObservableObject {
     /// Scrub to a journal position: pure prefix replay, never a rollback.
     public func enterHistorical(at sequence: UInt64) {
         historicalState = try? Projection.state(at: sequence, of: store)
+        Task { await saveScrubPosition(sequence) }
     }
 
     public func returnToNow() {
         historicalState = nil
+        Task { await saveScrubPosition(nil) }
     }
 
     /// The state the UI should render: historical when scrubbing, live now.
@@ -248,8 +271,20 @@ public struct ProjectDesktopView: View {
 
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: model.layout.cardScale.minimumCardWidth), spacing: 12)], spacing: 12) {
-                    ForEach(CardGridViewModel.cards(from: rendered)) { card in
+                    ForEach(orderedCards(from: rendered)) { card in
                         CardView(card: card)
+                            .draggable(card.title)
+                            .dropDestination(for: String.self) { items, _ in
+                                guard let dragged = items.first else { return false }
+                                let current = orderedCards(from: rendered).map(\.title)
+                                let reordered = CardOrdering.move(dragged, toAfter: card.title, in: current)
+                                guard reordered != current else { return false }
+                                Task { await model.saveCardOrder(reordered) }
+                                return true
+                            }
+                            .contextMenu {
+                                CardContextMenu(model: model, card: card)
+                            }
                     }
                     DepthPanels(model: model, rendered: rendered)
                 }
@@ -624,5 +659,31 @@ struct TimelineRulerView: View {
         let start = Double(lane.startsAtSequence) / total
         let end = Double(lane.endsAtSequence ?? ruler.totalEvents) / total
         return max(24, (end - start) * 320)
+    }
+}
+
+/// Right-click menu per card — real actions only (docs 06).
+struct CardContextMenu: View {
+    @ObservedObject var model: AppModel
+    let card: CardSummary
+
+    var body: some View {
+        Button("Copy Summary") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(card.body, forType: .string)
+        }
+        Divider()
+        Text(card.whyHere).font(.caption)
+    }
+}
+
+extension ProjectDesktopView {
+    /// Cards in the user's persisted arrangement (pinned first).
+    func orderedCards(from state: ProjectState) -> [CardSummary] {
+        let cards = CardGridViewModel.cards(from: state)
+        let ordering = CardOrdering(order: model.session.cardOrder, pinned: model.layout.pinnedCardIDs)
+        let byTitle = Dictionary(cards.map { ($0.title, $0) }, uniquingKeysWith: { first, _ in first })
+        let orderedTitles = CardOrdering.sorted(available: cards.map(\.title), ordering: ordering)
+        return orderedTitles.compactMap { byTitle[$0] }
     }
 }

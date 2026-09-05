@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import AIOSCore
 @testable import DesktopShell
+@testable import EventJournal
 
 @Test func desktopSessionRoundTripsAndIsolatesPerProject() throws {
     let root = FileManager.default.temporaryDirectory
@@ -49,4 +50,24 @@ import Testing
     #expect(reordered.firstIndex(of: "needs-you")! > reordered.firstIndex(of: "notes")!)
     #expect(Set(reordered) == Set(rendered))
     #expect(reordered.count == rendered.count)
+}
+
+
+@MainActor
+@Test func dragReorderPersistsAcrossDesktopSwitch() async throws {
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("aios-dnd-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let journal = try JournalStore(projectID: ProjectID(), rootDirectory: root)
+    let model = AppModel(store: journal)
+
+    await model.saveCardOrder(["Timeline", "Needs You", "Artifacts", "Findings"])
+    let reloaded = AppModel(store: try JournalStore(projectID: journal.projectID, rootDirectory: root))
+    #expect(reloaded.session.cardOrder == ["Timeline", "Needs You", "Artifacts", "Findings"])
+
+    // Scrub position also persists per desktop.
+    model.enterHistorical(at: 3)
+    try await Task.sleep(for: .milliseconds(150))
+    let again = AppModel(store: try JournalStore(projectID: journal.projectID, rootDirectory: root))
+    #expect(again.session.lastScrubSequence == 3)
 }
