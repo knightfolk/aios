@@ -4,7 +4,8 @@ import Testing
 @testable import VoiceRuntime
 @testable import MediaRuntime
 
-@Test func sayAdapterSynthesizesRealAudio() async throws {
+@Test(.enabled(if: ProcessInfo.processInfo.environment["AIOS_LIVE_TTS"] == "1"))
+func sayAdapterSynthesizesRealAudio() async throws {
     let adapter = SayTTSAdapter()
     guard await adapter.isAvailable() else {
         Issue.record("/usr/bin/say unavailable on this machine")
