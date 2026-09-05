@@ -5,16 +5,6 @@ import Testing
 @testable import ExecutionFabric
 @testable import ModelRuntime
 
-private func workerBinary() throws -> URL {
-    let packageRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let url = packageRoot.appendingPathComponent(".build/debug/InferenceWorker")
-    #expect(FileManager.default.fileExists(atPath: url.path), "missing worker binary: \(url.path)")
-    return url
-}
-
 private func dummyModelDir() throws -> URL {
     let dir = FileManager.default.temporaryDirectory
         .appendingPathComponent("aios-dummymodel-\(UUID().uuidString)", isDirectory: true)
@@ -22,7 +12,7 @@ private func dummyModelDir() throws -> URL {
     return dir
 }
 
-private func makePackage() -> WorkPackage {
+private func makeContextPackage() -> WorkPackage {
     WorkPackage(
         packageID: WorkPackageID(),
         projectID: ProjectID(),
@@ -78,7 +68,7 @@ private func echoSession(modelDir: URL, heartbeatTimeout: TimeInterval = 10) thr
     defer { try? FileManager.default.removeItem(at: modelDir) }
     let session = try echoSession(modelDir: modelDir)
     try await session.start()
-    try await session.sendWorkPackage(makePackage())
+    try await session.sendWorkPackage(makeContextPackage())
 
     var chunks = 0
     var generationDone: GenerationResult?
@@ -128,7 +118,7 @@ private func echoSession(modelDir: URL, heartbeatTimeout: TimeInterval = 10) thr
     defer { try? FileManager.default.removeItem(at: modelDir) }
     let session = try echoSession(modelDir: modelDir)
     try await session.start()
-    try await session.sendWorkPackage(makePackage())
+    try await session.sendWorkPackage(makeContextPackage())
 
     // Wait for the first streamed chunk, then hard-kill the worker.
     _ = try await session.waitFor({ if case .generationChunk = $0 { true } else { false } }, timeout: 10)

@@ -10,16 +10,6 @@ import Testing
 // is view-model state fed by session events; the brain's output stays
 // generatedContent; completion claims never auto-promote.
 
-private func workerBinary() throws -> URL {
-    let packageRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let url = packageRoot.appendingPathComponent(".build/debug/InferenceWorker")
-    #expect(FileManager.default.fileExists(atPath: url.path), "missing worker binary: \(url.path)")
-    return url
-}
-
 @MainActor @Test func expertChatTranscriptReflectsSessionEvents() async throws {
     await TestEnvGate.lock()
     defer { TestEnvGate.unlock() }

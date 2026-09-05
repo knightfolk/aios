@@ -5,16 +5,6 @@ import Testing
 @testable import ExecutionFabric
 @testable import ProjectKernel
 
-private func workerBinary(_ name: String) throws -> URL {
-    let packageRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let url = packageRoot.appendingPathComponent(".build/debug/\(name)")
-    #expect(FileManager.default.fileExists(atPath: url.path), "missing worker binary — run swift build first: \(url.path)")
-    return url
-}
-
 private func makeJournal() throws -> (JournalStore, URL) {
     let root = FileManager.default.temporaryDirectory
         .appendingPathComponent("aios-worker-\(UUID().uuidString)", isDirectory: true)
@@ -27,36 +17,6 @@ private func writeScenario(_ scenario: WorkerScenario) throws -> URL {
         .appendingPathComponent("aios-scenario-\(UUID().uuidString).json")
     try JSONEncoder().encode(scenario).write(to: url)
     return url
-}
-
-private func makePackage() -> WorkPackage {
-    WorkPackage(
-        packageID: WorkPackageID(),
-        projectID: ProjectID(),
-        goalRevisionID: GoalRevisionID(),
-        planRevisionID: PlanRevisionID(),
-        taskID: TaskID(),
-        attemptID: AttemptID(),
-        role: .linus,
-        taskContract: TaskContract(
-            objective: "fix lexer",
-            inputs: [], allowedScope: [], mustPreserve: [], forbiddenScope: [],
-            expectedOutputs: [], verificationRequirements: [],
-            dependencyAssumptions: [], stalenessConditions: []
-        ),
-        contextBundle: ContextBundle(selections: [], tokenBudget: 1000),
-        capabilities: [.modifyWorkspace],
-        executionTargets: [.singleAgent],
-        resourceBudget: ResourceBudget(),
-        timeBudget: TimeBudget(),
-        privacyPolicy: .localOnly,
-        spendPolicy: SpendPolicy(),
-        expectedOutputs: [],
-        verificationRequirements: [],
-        handoffPolicy: .continuation,
-        failurePolicy: .retryIdempotentOnly,
-        harnessProfile: HarnessProfileID(value: "default-v1")
-    )
 }
 
 @Test func scriptedWorkerRoundTripsActionsAndResult() async throws {
@@ -73,14 +33,14 @@ private func makePackage() -> WorkPackage {
 
     let session = WorkerSession(
         configuration: .init(
-            executableURL: try workerBinary("InferenceWorker"),
+            executableURL: try packageExecutable("InferenceWorker"),
             arguments: ["--scenario", scenarioURL.path],
             heartbeatTimeoutSeconds: 10
         ),
         journal: journal
     )
     try await session.start()
-    try await session.sendWorkPackage(makePackage())
+    try await session.sendWorkPackage(makeWorkPackage())
 
     let request = try await session.waitFor({ if case .actionRequest = $0 { true } else { false } }, timeout: 10)
     guard case .actionRequest(let action) = request else { Issue.record("unexpected event"); return }
@@ -114,14 +74,14 @@ private func makePackage() -> WorkPackage {
 
     let session = WorkerSession(
         configuration: .init(
-            executableURL: try workerBinary("InferenceWorker"),
+            executableURL: try packageExecutable("InferenceWorker"),
             arguments: ["--scenario", scenarioURL.path],
             heartbeatTimeoutSeconds: 10
         ),
         journal: journal
     )
     try await session.start()
-    try await session.sendWorkPackage(makePackage())
+    try await session.sendWorkPackage(makeWorkPackage())
 
     // Let the worker enter its long sleep, then hard-kill it.
     try await Task.sleep(for: .milliseconds(300))
@@ -150,14 +110,14 @@ private func makePackage() -> WorkPackage {
 
     let session = WorkerSession(
         configuration: .init(
-            executableURL: try workerBinary("InferenceWorker"),
+            executableURL: try packageExecutable("InferenceWorker"),
             arguments: ["--scenario", scenarioURL.path],
             heartbeatTimeoutSeconds: 0.3
         ),
         journal: journal
     )
     try await session.start()
-    try await session.sendWorkPackage(makePackage())
+    try await session.sendWorkPackage(makeWorkPackage())
 
     let hang = try await session.waitFor({ if case .hungDetected = $0 { true } else { false } }, timeout: 5)
     guard case .hungDetected = hang else { return }
@@ -170,7 +130,7 @@ private func makePackage() -> WorkPackage {
 
     let session = WorkerSession(
         configuration: .init(
-            executableURL: try workerBinary("ToolWorker"),
+            executableURL: try packageExecutable("ToolWorker"),
             arguments: [],
             heartbeatTimeoutSeconds: 10
         ),

@@ -12,16 +12,6 @@ import Testing
 // contract, receive the broker's outcome, and complete. Skipped unless
 // AIOS_LIVE_TOOLS=1.
 
-private func workerBinary() throws -> URL {
-    let packageRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let url = packageRoot.appendingPathComponent(".build/debug/InferenceWorker")
-    #expect(FileManager.default.fileExists(atPath: url.path), "missing worker binary: \(url.path)")
-    return url
-}
-
 @Test(.enabled(if: ProcessInfo.processInfo.environment["AIOS_LIVE_TOOLS"] == "1"))
 func realBrainProposesActionAndCompletes() async throws {
     let modelDir = try #require(try liveModelDirectory(), "model not resident — run: swift run ModelFetch qwen25-7b-instruct-4bit")
@@ -76,13 +66,11 @@ func realBrainProposesActionAndCompletes() async throws {
     var workResult: WorkResult?
     var proposedActions: [ActionRequest] = []
     var generations: [String] = []
-    var cursor = await session.eventHistory().count
+    var collector = await SessionEventCollector(session: session)
     let deadline = Date().addingTimeInterval(300)
     loop: while Date() < deadline {
-        let events = await session.eventHistory()
-        while cursor < events.count {
-            let event = events[cursor]
-            cursor += 1
+        let events = await collector.drain(from: session)
+        for event in events {
             switch event {
             case .actionRequest(let request):
                 proposedActions.append(request)

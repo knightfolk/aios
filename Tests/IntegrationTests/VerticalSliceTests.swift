@@ -45,16 +45,6 @@ private func makeFixture() throws -> URL {
     return fixture
 }
 
-private func workerBinary(_ name: String) throws -> URL {
-    let packageRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let url = packageRoot.appendingPathComponent(".build/debug/\(name)")
-    #expect(FileManager.default.fileExists(atPath: url.path), "missing worker binary: \(url.path)")
-    return url
-}
-
 private func writeScenario(_ scenario: WorkerScenario) throws -> URL {
     let url = FileManager.default.temporaryDirectory
         .appendingPathComponent("aios-slice-\(UUID().uuidString).json")
@@ -75,13 +65,11 @@ private struct SliceEngine {
     /// actions; the broker validates, authorizes, executes, and journals.
     func runAttempt(session: WorkerSession, package: WorkPackage, timeout: TimeInterval = 15) async throws -> WorkResult {
         try await session.sendWorkPackage(package)
-        var cursor = await session.eventHistory().count
+        var collector = await SessionEventCollector(session: session)
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            let events = await session.eventHistory()
-            while cursor < events.count {
-                let event = events[cursor]
-                cursor += 1
+            let events = await collector.drain(from: session)
+            for event in events {
                 switch event {
                 case .actionRequest(let request):
                     let result = await broker.execute(request, policy: policy)
@@ -192,7 +180,7 @@ private struct SliceEngine {
 
     let crashScenario = try writeScenario(WorkerScenario(steps: [.sleepMs(200), .crash], heartbeatIntervalSeconds: 0.5))
     let session1 = WorkerSession(
-        configuration: .init(executableURL: try workerBinary("InferenceWorker"),
+        configuration: .init(executableURL: try packageExecutable("InferenceWorker"),
                              arguments: ["--scenario", crashScenario.path],
                              heartbeatTimeoutSeconds: 10),
         journal: journal
@@ -253,7 +241,7 @@ private struct SliceEngine {
         .finish(.init(status: "COMPLETED", claims: [["edit applied", "EXPERT_JUDGMENT"]], summary: "fix written"))
     ], heartbeatIntervalSeconds: 0.5))
     let session2 = WorkerSession(
-        configuration: .init(executableURL: try workerBinary("InferenceWorker"),
+        configuration: .init(executableURL: try packageExecutable("InferenceWorker"),
                              arguments: ["--scenario", scenario2.path],
                              heartbeatTimeoutSeconds: 10),
         journal: journal

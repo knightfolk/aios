@@ -12,16 +12,6 @@ import Testing
 // workspace; the worker consumes the ActionResult, runs a second turn, and
 // completes with the action referenced in completedActionRefs.
 
-private func workerBinary() throws -> URL {
-    let packageRoot = URL(fileURLWithPath: #filePath)
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-        .deletingLastPathComponent()
-    let url = packageRoot.appendingPathComponent(".build/debug/InferenceWorker")
-    #expect(FileManager.default.fileExists(atPath: url.path), "missing worker binary: \(url.path)")
-    return url
-}
-
 @Test func echoBrainPerformsRealActionThroughBrokerAndCompletes() async throws {
     let workspace = FileManager.default.temporaryDirectory
         .appendingPathComponent("aios-tools-\(UUID().uuidString)", isDirectory: true)
@@ -74,13 +64,11 @@ private func workerBinary() throws -> URL {
 
     var workResult: WorkResult?
     var proposedActions: [ActionRequest] = []
-    var cursor = await session.eventHistory().count
+    var collector = await SessionEventCollector(session: session)
     let deadline = Date().addingTimeInterval(30)
     loop: while Date() < deadline {
-        let events = await session.eventHistory()
-        while cursor < events.count {
-            let event = events[cursor]
-            cursor += 1
+        let events = await collector.drain(from: session)
+        for event in events {
             switch event {
             case .actionRequest(let request):
                 proposedActions.append(request)
