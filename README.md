@@ -5,7 +5,7 @@ grounded "AI computer" rather than a chat client. Users work inside persistent
 Project desktops; underneath is a durable runtime for goals, agents, tools,
 evidence, computer use, voice, media, and long-running execution.
 
-Status: **Phase 0–2 complete** (engine kernel, first vertical slice, hybrid
+Status: **Phase 0–3 complete** (engine kernel, first vertical slice, hybrid
 intelligence). See `docs/superpowers/specs/` and `docs/superpowers/plans/` for
 the design history; `docs/` holds the full architecture packet.
 
@@ -36,6 +36,11 @@ the design history; `docs/` holds the full architecture packet.
   cascade; independent evaluator rejects unevidenced completion claims.
 - **Minimal truthful SwiftUI shell**: cards from projections, Past/Now/Future/
   Gaps timeline, deterministic Emergency Stop.
+- **Desktop depth**: resolvable Needs You queue, evidence-based Project
+  Health (no composite score), Desk Notes + Project Inbox with explicit
+  journaled promotion, projected-future panel, checkpoints with explicit
+  branch/restore, and inspect-only timeline scrub (pure replay prefix — the
+  journal is byte-identical before and after scrubbing).
 
 ## Build & test
 
