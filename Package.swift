@@ -11,7 +11,7 @@ let package = Package(
         .target(name: "ProjectKernel", dependencies: ["AIOSCore", "EventJournal"]),
         .target(name: "Scheduler", dependencies: ["AIOSCore"]),
         .target(name: "Router", dependencies: ["AIOSCore"]),
-        .target(name: "Supervisor", dependencies: ["AIOSCore"]),
+        .target(name: "Supervisor", dependencies: ["AIOSCore", "EventJournal"]),
         .target(name: "CapabilityBroker", dependencies: ["AIOSCore", "EventJournal", "SecurityKernel", "ExecutionFabric"]),
         .target(name: "SecurityKernel", dependencies: ["AIOSCore"]),
         .target(name: "ExecutionFabric", dependencies: ["AIOSCore", "EventJournal"]),
@@ -27,7 +27,7 @@ let package = Package(
 
         // Tests
         .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
-        .testTarget(name: "RecoveryTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ExecutionFabric"]),
+        .testTarget(name: "RecoveryTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "ExecutionFabric", "Supervisor"]),
         .testTarget(name: "SecurityTests", dependencies: ["AIOSCore", "EventJournal", "SecurityKernel", "CapabilityBroker"]),
         .testTarget(name: "IntegrationTests", dependencies: ["AIOSCore"]),
     ]
