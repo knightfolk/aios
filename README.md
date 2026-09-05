@@ -5,7 +5,7 @@ grounded "AI computer" rather than a chat client. Users work inside persistent
 Project desktops; underneath is a durable runtime for goals, agents, tools,
 evidence, computer use, voice, media, and long-running execution.
 
-Status: **Phase 0–3 complete** (engine kernel, first vertical slice, hybrid
+Status: **Phase 0–4 complete** (engine kernel, first vertical slice, hybrid
 intelligence). See `docs/superpowers/specs/` and `docs/superpowers/plans/` for
 the design history; `docs/` holds the full architecture packet.
 
@@ -86,7 +86,7 @@ share: `AIOS_ZAI_KEY=... swift run ProviderSetup zai`.
 swift run WorkRuntimeApp --journal <directory-containing-<uuid>-journals>
 ```
 
-## Honest limitations (as of Phase 2)
+## Honest limitations (as of Phase 4)
 
 - No tool-calling from model brains yet: local/cloud generation produces
   typed `generatedContent` claims only; real effects still flow through the
@@ -96,8 +96,16 @@ swift run WorkRuntimeApp --journal <directory-containing-<uuid>-journals>
 - Keychain-stored keys are readable only by processes the user approves
   (unsigned CLI binaries prompt); the app target will carry proper
   keychain-access groups.
-- Computer control (Chloe), voice, and media runtimes are future phases;
-  see `docs/10_VALIDATION_AND_ROADMAP.md`.
+- **Chloe computer control (Phase 4)**: single-owner lease (journaled
+  grant/release/deny/expiry), Accessibility-first adapter (activate app,
+  read focused element, type text — requires the runner to hold the
+  Accessibility trust), Shadow Mode that records without executing, and an
+  Emergency Stop path that releases the lease and freezes the director
+  deterministically. `clickElement` refuses rather than guessing until the
+  AX selector engine lands; ScreenCaptureKit observation and browser-DOM /
+  pixel adapters are typed seams, honestly reported unavailable.
+- Voice and media runtimes are later phases; see
+  `docs/10_VALIDATION_AND_ROADMAP.md`.
 
 ## License
 

@@ -63,7 +63,14 @@ public actor CapabilityBroker {
             return reject("external consequence requires explicit user approval")
         }
 
-        if request.operation == "shell.run" {
+        if request.capability == .operateComputer && !policy.allowComputerControl {
+            return reject("computer control requires an explicit lease-backed policy grant")
+        }
+
+        if request.capability == .operateComputer {
+            // Targets are AX references / bundle ids, not filesystem paths:
+            // gated by the explicit policy grant + the lease, not roots.
+        } else if request.operation == "shell.run" {
             // The target is an executable (constrained by the allowlist and
             // Local Only); the workspace scope applies to the working
             // directory the command runs in.

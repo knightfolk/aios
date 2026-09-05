@@ -4,6 +4,7 @@ import Testing
 @testable import EventJournal
 @testable import ProjectKernel
 @testable import SecurityKernel
+@testable import CapabilityBroker
 @testable import ComputerControl
 @testable import DesktopShell
 
@@ -98,4 +99,35 @@ final class NoopLeaseForTests: LeaseAuthorizing, @unchecked Sendable {
     func authorize(owner: String, action: ChloeAction) async throws -> LeaseAuthorization { .allowed }
     func noteUserInteraction() async throws -> Bool { false }
     func emergencyRelease(reason: String) async throws {}
+}
+
+@Test func brokerRefusesComputerControlWithoutExplicitGrant() async throws {
+    let workspace = FileManager.default.temporaryDirectory
+        .appendingPathComponent("aios-cc-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: workspace, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: workspace) }
+    let root = FileManager.default.temporaryDirectory
+        .appendingPathComponent("aios-cc-j-\(UUID().uuidString)", isDirectory: true)
+    let journal = try JournalStore(projectID: ProjectID(), rootDirectory: root)
+    defer { try? FileManager.default.removeItem(at: root) }
+    let broker = CapabilityBroker(journal: journal)
+
+    let intent = ActionRequest(
+        actionID: ActionID(), workPackageID: WorkPackageID(), requestedBy: .chloe,
+        capability: .operateComputer, operation: "ax.typeText", target: "AX:focus",
+        parameters: ["text": .text("hi")], expectedEffect: "text typed",
+        sideEffectClass: .local, reversibility: .reversible, idempotency: .idempotent,
+        requiredPermission: .operateComputer, verificationPlan: "read back"
+    )
+    let deniedPolicy = SecurityPolicy(workspaceRoots: [workspace.path], allowedCommands: [], localOnly: true)
+    let denied = await broker.execute(intent, policy: deniedPolicy)
+    #expect(denied.outcome == ActionOutcome.rejected)
+    #expect(denied.failureDetails?.contains("lease") == true)
+
+    var grantedPolicy = deniedPolicy
+    grantedPolicy.allowComputerControl = true
+    // The lease itself still gates execution at the director; the broker
+    // grant only makes the capability reachable.
+    let reachable = await broker.prepare(intent, policy: grantedPolicy)
+    #expect(reachable.rejection == nil)
 }

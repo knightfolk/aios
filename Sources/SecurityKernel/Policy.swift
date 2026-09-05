@@ -12,17 +12,22 @@ public struct SecurityPolicy: Codable, Sendable, Hashable {
     public var localOnly: Bool
     /// External-consequence actions need explicit user approval; v0 denies.
     public var allowExternalConsequences: Bool
+    /// Computer control is lease-gated; the broker refuses it unless the
+    /// policy explicitly opted in (docs 08 capability class).
+    public var allowComputerControl: Bool
 
     public init(
         workspaceRoots: [String] = [],
         allowedCommands: [String] = [],
         localOnly: Bool = true,
-        allowExternalConsequences: Bool = false
+        allowExternalConsequences: Bool = false,
+        allowComputerControl: Bool = false
     ) {
         self.workspaceRoots = workspaceRoots
         self.allowedCommands = allowedCommands
         self.localOnly = localOnly
         self.allowExternalConsequences = allowExternalConsequences
+        self.allowComputerControl = allowComputerControl
     }
 }
 
