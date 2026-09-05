@@ -81,12 +81,10 @@ extension WorkerScenario {
 
     static func capabilityClass(forOperation operation: String) -> CapabilityClass {
         switch operation {
-        case let op where op.hasPrefix("fs.read"), let op where op.hasPrefix("git.diff"), let op where op.hasPrefix("git.status"):
-            _ = op
+        case _ where operation.hasPrefix("fs.read"),
+             _ where operation.hasPrefix("git.diff"),
+             _ where operation.hasPrefix("git.status"):
             return .observe
-        case let op where op.hasPrefix("shell.run"):
-            _ = op
-            return .modifyWorkspace
         default:
             return .modifyWorkspace
         }
@@ -94,8 +92,8 @@ extension WorkerScenario {
 
     static func sideEffectClass(forOperation operation: String) -> SideEffectClass {
         switch operation {
-        case let op where op.hasPrefix("fs.read"), let op where op.hasPrefix("git.diff"):
-            _ = op
+        case _ where operation.hasPrefix("fs.read"),
+             _ where operation.hasPrefix("git.diff"):
             return .none
         default:
             return .local

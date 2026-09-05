@@ -47,8 +47,7 @@ public enum LocalOnlyEnforcer {
         if blockedShellCommands.contains(executable) {
             return .rejected(reason: "Local Only blocks network-capable command \(executable)")
         }
-        if let prefix = blockedOperationPrefixes.first(where: { request.operation.hasPrefix($0) }) {
-            _ = prefix
+        if blockedOperationPrefixes.contains(where: { request.operation.hasPrefix($0) }) {
             return .rejected(reason: "Local Only blocks operation \(request.operation)")
         }
         if request.target.hasPrefix("http://") || request.target.hasPrefix("https://") || request.target.hasPrefix("s3://") {
