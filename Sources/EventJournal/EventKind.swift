@@ -40,6 +40,23 @@ public enum EngineEvent: Codable, Sendable, Hashable {
     case inboxItemPromoted(InboxItemPromotedPayload)
     case branchCreated(BranchCreatedPayload)
     case restoredFromCheckpoint(RestoredFromCheckpointPayload)
+    case leaseEvent(LeaseEventPayload)
+}
+
+/// Computer-control lease lifecycle: granted=true for acquisition,
+/// granted=false with a reason for release/deny/expiry/invalidation.
+public struct LeaseEventPayload: Codable, Sendable, Hashable {
+    public var granted: Bool
+    public var owner: String
+    public var reason: String
+    public var at: Date
+
+    public init(granted: Bool, owner: String, reason: String, at: Date = Date()) {
+        self.granted = granted
+        self.owner = owner
+        self.reason = reason
+        self.at = at
+    }
 }
 
 public struct NeedsYouResolvedPayload: Codable, Sendable, Hashable {

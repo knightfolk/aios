@@ -241,6 +241,18 @@ public struct RestorationRecord: Codable, Sendable, Hashable {
     }
 }
 
+public struct LeaseEventRecord: Codable, Sendable, Hashable {
+    public var granted: Bool
+    public var owner: String
+    public var reason: String
+
+    public init(granted: Bool, owner: String, reason: String) {
+        self.granted = granted
+        self.owner = owner
+        self.reason = reason
+    }
+}
+
 /// Full projected state of one project, derived only from journaled events.
 public struct ProjectState: Codable, Sendable, Hashable {
     public var projectID: ProjectID
@@ -258,6 +270,7 @@ public struct ProjectState: Codable, Sendable, Hashable {
     public var promotions: [PromotionRecord]
     public var branches: [BranchRecord]
     public var restorations: [RestorationRecord]
+    public var leaseEvents: [LeaseEventRecord]
     public var interventions: [String]
     public var checkpoints: [String]
     public var warnings: [String]
@@ -279,6 +292,7 @@ public struct ProjectState: Codable, Sendable, Hashable {
         self.promotions = []
         self.branches = []
         self.restorations = []
+        self.leaseEvents = []
         self.interventions = []
         self.checkpoints = []
         self.warnings = []

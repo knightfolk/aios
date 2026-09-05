@@ -301,6 +301,9 @@ public enum Projection {
 
         case .restoredFromCheckpoint(let p):
             next.restorations.append(RestorationRecord(checkpointID: p.checkpointID, note: p.note))
+
+        case .leaseEvent(let p):
+            next.leaseEvents.append(LeaseEventRecord(granted: p.granted, owner: p.owner, reason: p.reason))
         }
 
         return next
