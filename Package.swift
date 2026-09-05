@@ -51,6 +51,7 @@ let package = Package(
         .executableTarget(name: "ToolWorker", dependencies: ["AIOSCore", "ExecutionFabric"]),
         .executableTarget(name: "ModelFetch", dependencies: ["AIOSCore", "ModelRuntime", "MLXRuntime"]),
         .executableTarget(name: "ProviderSetup", dependencies: ["AIOSCore", "ModelRuntime", "SecurityKernel", "CloudRuntime"]),
+        .executableTarget(name: "DemoSeed", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel"]),
 
         // Tests
         .testTarget(name: "KernelTests", dependencies: ["AIOSCore", "EventJournal", "ProjectKernel", "EvidenceEngine", "EvaluationEngine", "Scheduler", "Router", "ExpertRuntime", "ContextCompiler", "DesktopShell", "ModelRuntime", "ExecutionFabric"]),
