@@ -662,7 +662,8 @@ struct TimelineRulerView: View {
     }
 }
 
-/// Right-click menu per card — real actions only (docs 06).
+/// Right-click menu per card — real actions only (docs 06): copy, pin,
+/// and window-scale controls persist per project.
 struct CardContextMenu: View {
     @ObservedObject var model: AppModel
     let card: CardSummary
@@ -672,8 +673,36 @@ struct CardContextMenu: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(card.body, forType: .string)
         }
+        Button(model.layout.pinnedCardIDs.contains(card.title) ? "Unpin Card" : "Pin Card") {
+            Task { await togglePin(card.title) }
+        }
+        Divider()
+        Picker("Card Size", selection: Binding(
+            get: { model.layout.cardScale },
+            set: { scale in Task { await setScale(scale) } }
+        )) {
+            Text("Compact").tag(CardScale.compact)
+            Text("Comfortable").tag(CardScale.comfortable)
+            Text("Spacious").tag(CardScale.spacious)
+        }
         Divider()
         Text(card.whyHere).font(.caption)
+    }
+
+    private func togglePin(_ title: String) async {
+        var layout = model.layout
+        if let index = layout.pinnedCardIDs.firstIndex(of: title) {
+            layout.pinnedCardIDs.remove(at: index)
+        } else {
+            layout.pinnedCardIDs.append(title)
+        }
+        await model.saveLayout(layout)
+    }
+
+    private func setScale(_ scale: CardScale) async {
+        var layout = model.layout
+        layout.cardScale = scale
+        await model.saveLayout(layout)
     }
 }
 

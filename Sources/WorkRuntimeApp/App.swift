@@ -36,12 +36,14 @@ struct WorkRuntimeApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("AI Work Runtime") { [appDelegate] in
+        WindowGroup("AI Work Runtime", id: "main") { [appDelegate] in
             RootView(options: Options(arguments: Array(CommandLine.arguments.dropFirst())))
                 .frame(minWidth: 960, minHeight: 600)
                 .environmentObject(appDelegate.commandBus)
         }
         .windowStyle(.automatic)
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 1280, height: 800)
         .commands {
             OSMenus()
         }
