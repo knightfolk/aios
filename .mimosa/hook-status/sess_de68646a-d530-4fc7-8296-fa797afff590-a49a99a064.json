@@ -1,10 +1,10 @@
 {
   "schemaVersion": "mimosa-hook-status/v1",
-  "recordedAt": "2026-09-05T04:43:36.616Z",
+  "recordedAt": "2026-09-05T04:46:01.273Z",
   "sessionId": "sess_de68646a-d530-4fc7-8296-fa797afff590",
   "event": "PostToolUse",
-  "toolName": "Edit",
-  "file": "Sources/ToolWorker/main.swift",
+  "toolName": "Write",
+  "file": "Sources/DesktopShell/EmergencyStop.swift",
   "outcome": "clear",
   "coverage": "complete",
   "findingCount": 0,
