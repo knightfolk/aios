@@ -5,7 +5,7 @@ grounded "AI computer" rather than a chat client. Users work inside persistent
 Project desktops; underneath is a durable runtime for goals, agents, tools,
 evidence, computer use, voice, media, and long-running execution.
 
-Status: **Phase 0–4 complete** (engine kernel, first vertical slice, hybrid
+Status: **Phase 0–5 complete** (engine kernel, first vertical slice, hybrid
 intelligence). See `docs/superpowers/specs/` and `docs/superpowers/plans/` for
 the design history; `docs/` holds the full architecture packet.
 
@@ -104,8 +104,13 @@ swift run WorkRuntimeApp --journal <directory-containing-<uuid>-journals>
   deterministically. `clickElement` refuses rather than guessing until the
   AX selector engine lands; ScreenCaptureKit observation and browser-DOM /
   pixel adapters are typed seams, honestly reported unavailable.
-- Voice and media runtimes are later phases; see
-  `docs/10_VALIDATION_AND_ROADMAP.md`.
+- **Voice runtime (Phase 5)**: session state machine with explicit target
+  routing, distinct stop-speaking / pause / stop semantics, RMS-energy
+  barge-in that cancels playback, and a load-probe latency test. ASR/TTS
+  adapters are injectable; the bundled pair is a declared echo double —
+  real local/cloud speech adapters are typed seams, honestly unavailable
+  until their runtimes land.
+- Media runtime is a later phase; see `docs/10_VALIDATION_AND_ROADMAP.md`.
 
 ## License
 
