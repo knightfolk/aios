@@ -40,7 +40,7 @@ func realBrainProposesActionAndCompletes() async throws {
     let policy = SecurityPolicy(workspaceRoots: [workspace.path], allowedCommands: [], localOnly: true)
 
     let target = workspace.appendingPathComponent("brain-notes.txt").path
-    TestEnvGate.lock()
+    await TestEnvGate.lock()
     defer { TestEnvGate.unlock() }
     TestEnvGate.set("AIOS_FAKE_LLM", nil) // real brain, no echo
 

@@ -7,7 +7,17 @@ import Foundation
 enum TestEnvGate {
     private static let semaphore = DispatchSemaphore(value: 1)
 
-    static func lock() { semaphore.wait() }
+    /// Blocks only a dispatch thread, never a Swift-concurrency cooperative
+    /// thread (blocking the pool deadlocks small-core CI runners).
+    static func lock() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global().async {
+                semaphore.wait()
+                continuation.resume()
+            }
+        }
+    }
+
     static func unlock() { semaphore.signal() }
 
     static func set(_ key: String, _ value: String?) {

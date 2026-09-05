@@ -67,7 +67,7 @@ private func echoSession(modelDir: URL, heartbeatTimeout: TimeInterval = 10) thr
 }
 
 @Test func modelModeStreamsAndReportsHonestIdentity() async throws {
-    TestEnvGate.lock()
+    await TestEnvGate.lock()
     defer { TestEnvGate.unlock() }
     TestEnvGate.set("AIOS_FAKE_LLM", "1")
     TestEnvGate.set("AIOS_FAKE_LLM_ACTIONS", nil)
@@ -117,7 +117,7 @@ private func echoSession(modelDir: URL, heartbeatTimeout: TimeInterval = 10) thr
 }
 
 @Test func killMidGenerationFollowsCrashPath() async throws {
-    TestEnvGate.lock()
+    await TestEnvGate.lock()
     defer { TestEnvGate.unlock() }
     TestEnvGate.set("AIOS_FAKE_LLM", "1")
     TestEnvGate.set("AIOS_FAKE_LLM_DELAY_MS", "100") // slow chunks → a real mid-generation window
