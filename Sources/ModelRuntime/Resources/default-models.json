@@ -1,3 +1,71 @@
 {
-  "models": []
+  "models": [
+    {
+      "schemaVersion": 1,
+      "modelID": "qwen25-7b-instruct-4bit",
+      "family": "qwen2.5",
+      "revision": "1",
+      "quantization": "4bit",
+      "sourceURL": "https://huggingface.co/mlx-community/Qwen2.5-7B-Instruct-4bit",
+      "files": [
+        {
+          "filename": "config.json",
+          "gitBlobSHA1": "f9dd0a512675c68d5d8d18f7e44d9f29141af60d"
+        },
+        {
+          "filename": "model.safetensors",
+          "gitBlobSHA1": "ae85d939fb1efdd4db9ecadb048c6a9761fb7e2c",
+          "sha256": "86110f368236b53cf4c2336f991a85703b17bcc60bb75f292b4002ec0219f071"
+        },
+        {
+          "filename": "model.safetensors.index.json",
+          "gitBlobSHA1": "669ba50dd3bc0e1ed5f31cd939a54d5dd37c3c85"
+        },
+        {
+          "filename": "tokenizer.json",
+          "gitBlobSHA1": "d24314ef7f0afd1b678c2e24c767e19f24f86b0e"
+        },
+        {
+          "filename": "tokenizer_config.json",
+          "gitBlobSHA1": "816372d7ae55ff163ebec9e9d2286c6b462539be"
+        },
+        {
+          "filename": "special_tokens_map.json",
+          "gitBlobSHA1": "ac23c0aaa2434523c494330aeb79c58395378103"
+        },
+        {
+          "filename": "vocab.json",
+          "gitBlobSHA1": "4783fe10ac3adce15ac8f358ef5462739852c569"
+        },
+        {
+          "filename": "merges.txt",
+          "gitBlobSHA1": "31349551d90c7606f325fe0f11bbb8bd5fa0d7c7"
+        },
+        {
+          "filename": "added_tokens.json",
+          "gitBlobSHA1": "482ced4679301bf287ebb310bdd1790eb4514232"
+        }
+      ],
+      "license": "apache-2.0",
+      "modalities": [
+        "text"
+      ],
+      "contextWindowTokens": 32768,
+      "estimatedMemoryGB": 5.4,
+      "supportedRuntimes": [
+        "MLX"
+      ],
+      "recommendedRoles": [
+        "linus",
+        "sherlock",
+        "concierge"
+      ],
+      "knownLimitations": [
+        "no vision",
+        "no tool-calling in this phase"
+      ],
+      "requiresRemoteCode": false,
+      "evaluationRef": null
+    }
+  ]
 }
