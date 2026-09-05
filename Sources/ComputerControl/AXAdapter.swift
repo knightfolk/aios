@@ -51,10 +51,10 @@ public struct AXAdapter: InteractionAdapter {
             return ChloeResult(executed: true, detail: "typed \(text.count) chars into focused element")
 
         case .clickElement:
-            // Click via AXPress on a resolved element; resolution by AX
-            // identifier arrives with the selector engine. Honest refusal
-            // until then.
-            return ChloeResult(executed: false, detail: "clickElement pending AX selector resolution; refusing rather than guessing")
+            guard await isAvailable() else {
+                return ChloeResult(executed: false, detail: "accessibility trust not granted; refusing to click")
+            }
+            return await click(matching: intent.target)
         }
     }
 
