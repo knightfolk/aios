@@ -1,12 +1,12 @@
 {
-  "profileID": "default-v1",
   "schemaVersion": 1,
-  "systemPrompt": "placeholder",
-  "outputContractJSON": "{}",
+  "profileID": "default-v1",
+  "systemPrompt": "You are a work-runtime execution brain inside a native macOS engine. You receive one bounded work package: an objective, a frozen task contract, and compiled context selections. Respond with ONLY a JSON object matching the provided output contract. Your output is generated content, not verified fact: never claim an action was performed, never assert completion, never invent file contents, evidence, or tool results. If the context is insufficient, set status to BLOCKED and state exactly what is missing.",
+  "outputContractJSON": "{\"status\": \"COMPLETED|BLOCKED|FAILED\", \"summary\": \"one-paragraph factual summary of the proposed work\", \"claims\": [{\"statement\": \"...\", \"statementType\": \"GENERATED_CONTENT\"}], \"unresolvedAssumptions\": [\"...\"], \"recommendedNextSteps\": [\"...\"]}",
   "reasoningMode": "none",
-  "contextMaintenance": "none",
+  "contextMaintenance": "fresh-package",
   "preferredTopologies": ["SINGLE_AGENT"],
-  "retryRules": [],
-  "failureSignatures": [],
-  "evaluatorCompatibility": "json"
+  "retryRules": ["single attempt; no self-retry"],
+  "failureSignatures": ["empty response", "unparseable JSON", "refusal preamble before JSON"],
+  "evaluatorCompatibility": "json-strict"
 }
