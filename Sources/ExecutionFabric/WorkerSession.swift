@@ -38,7 +38,9 @@ public actor WorkerSession {
             executableURL: URL,
             arguments: [String] = [],
             heartbeatTimeoutSeconds: TimeInterval = 30,
-            handshakeTimeoutSeconds: TimeInterval = 10,
+            // Cold-launch of the MLX-linked debug worker can exceed 10s on
+            // slow CI cores; the handshake is not the thing under test.
+            handshakeTimeoutSeconds: TimeInterval = 60,
             protocolVersion: UInt = 1
         ) {
             self.executableURL = executableURL

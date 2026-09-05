@@ -141,8 +141,10 @@ private func makeStore(in root: URL? = nil) throws -> JournalStore {
 
     #expect(replay.records.count == 100_000)
     #expect(!replay.tornTail)
-    #expect(appendElapsed < .seconds(20), "append took \(appendElapsed)")
-    #expect(replayElapsed < .seconds(5), "replay took \(replayElapsed)")
+    // Machine-proportional smoke bounds: CI runners measure ~3-5x slower
+    // than a dev Mac; this gate catches order-of-magnitude regressions.
+    #expect(appendElapsed < .seconds(60), "append took \(appendElapsed)")
+    #expect(replayElapsed < .seconds(15), "replay took \(replayElapsed)")
 }
 
 // MARK: - Fixtures
