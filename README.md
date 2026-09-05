@@ -1,83 +1,91 @@
-# AI Work Runtime — Project Starter Packet
+# AIOS — AI Work Runtime
 
-> Clean-room design packet for a native, open-source macOS AI work environment.
+A native, open-source macOS work environment for durable intelligent work: a
+grounded "AI computer" rather than a chat client. Users work inside persistent
+Project desktops; underneath is a durable runtime for goals, agents, tools,
+evidence, computer use, voice, media, and long-running execution.
 
-This repository packet defines a **native Swift/SwiftUI/AppKit AI work environment** that feels like a grounded, useful "AI computer" rather than a chat client. It is designed to scale from a 32 GB Apple-silicon Mac using hybrid cloud intelligence to a 256 GB Mac Ultra-class system capable of keeping multiple heavyweight local models resident.
+Status: **Phase 0–2 complete** (engine kernel, first vertical slice, hybrid
+intelligence). See `docs/superpowers/specs/` and `docs/superpowers/plans/` for
+the design history; `docs/` holds the full architecture packet.
 
-The product metaphor is an AI operating environment. Architecturally, macOS remains the OS; this project is a **durable Work Runtime** for goals, agents, tools, evidence, computer use, voice, media, and long-running execution.
+## What runs today
 
-## Core product idea
+- Append-only, crash-safe **EventJournal** (CRC-framed, torn-tail tolerant).
+  The journal is the only authoritative state; everything else is a projection.
+- **ProjectKernel** projections with enforced invariants: no completion from
+  model self-report, no retry after UNKNOWN outcomes, immutable goal intent.
+- **Worker boundary**: real subprocess workers (framed stdio protocol,
+  heartbeats, SIGKILL crash detection and recovery). The InferenceWorker has
+  two honest modes: `--scenario` (declared scripted runtime) and `--model`
+  (real local MLX inference).
+- **SecurityKernel + CapabilityBroker**: Prepare→Validate→Authorize→Execute→
+  Observe→Reconcile lifecycle, stale-precondition detection, workspace
+  containment, command allowlist, Local Only enforcement of every escalation
+  class. Credentials live in the Keychain (or env); never in source or logs.
+- **Local MLX runtime**: ~8B 4-bit local models, hash-verified on download
+  (LFS SHA-256 for weights, git blob SHA-1 for configs).
+- **One validated cloud connector (Z.ai)**, OpenAI-compatible with SSE
+  streaming and usage extraction. The bundled profile defaults to the
+  free-tier `glm-4.5-flash`; paid models are opt-in.
+- **Supervisor**: deterministic loop-halt, contract-drift block, budget and
+  quota refusal (subscription allowance never silently overflows to paid).
+- **Checkpoint fallback** across scripted / MLX / cloud with journaled
+  `ModelSelected` switches and handoff packets.
+- **Evidence engine**: revision-bound evidence with automatic staleness
+  cascade; independent evaluator rejects unevidenced completion claims.
+- **Minimal truthful SwiftUI shell**: cards from projections, Past/Now/Future/
+  Gaps timeline, deterministic Emergency Stop.
 
-- Full-screen native macOS workspace.
-- Structured Home; each Project owns its own persistent, adaptive desktop.
-- Card-based activities that expose useful state without decorative telemetry.
-- A living, scrub-able Project Timeline:
-  - Past = recorded history.
-  - Now = live execution.
-  - Future = current plan.
-  - Gaps = known or suspected missing work.
-- Permanent expert identities above interchangeable model backends:
-  - **Linus** — engineering and coding.
-  - **Jobs** — product, UX, simplification, taste.
-  - **Einstein** — science, mathematics, modeling.
-  - **Sherlock** — research, investigation, verification, gap finding.
-  - **Henson** — art, media, music, creative production.
-  - **Chloe** — computer use, application control, automation.
-  - **Concierge** — lightweight system guide and front desk; not a specialist expert.
-- Small local Concierge + deterministic Router + powerful on-demand Orchestrator + deterministic Supervisor.
-- Apple-native runtime first: Swift, SwiftUI, AppKit, MLX/MLX Swift, Core ML where appropriate, Metal, AVFoundation, ScreenCaptureKit, Accessibility APIs, XPC.
-- Hybrid local/cloud compute by design.
-- Open standards where they fit: MCP for tools/data, Agent Skills for skills, later ACP/A2A only when justified.
+## Build & test
 
-## Design doctrine
+```sh
+swift build          # builds everything including mlx-linked targets
+swift test           # offline, fast: full suite (unit + integration)
+```
 
-1. **Visible = useful.**
-2. **Animated = real ongoing activity that can be monitored.**
-3. **Urgent emphasis = intervention genuinely needed now.**
-4. **No fake progress, fake certainty, or fake activity.**
-5. **The user owns goals; the system owns plans.**
-6. **Models are workers, never authoritative state.**
-7. **Completion requires evidence.**
-8. **Context is compiled, not accumulated.**
-9. **Brains propose; Hands act; History records.**
-10. **The UI remains fully operable when models fail.**
+## Fetch the local model (one-time, ~4.3 GB)
 
-## Packet map
+```sh
+swift run ModelFetch qwen25-7b-instruct-4bit
+```
 
-- `PROJECT_GOAL.md` — ready-to-paste kickoff goal for a coding agent.
-- `AGENTS.md` — project-wide rules for implementation agents.
-- `docs/01_PRODUCT_VISION.md` — product definition and UX principles.
-- `docs/02_ENGINE_CONSTITUTION.md` — non-negotiable runtime invariants.
-- `docs/03_ENGINE_ARCHITECTURE.md` — subsystem architecture and data flow.
-- `docs/04_CANONICAL_CONTRACTS.md` — WorkPackage, WorkResult, ActionRequest, ActionResult, Evidence.
-- `docs/05_PROJECT_KERNEL.md` — Project/Goal/Plan/Task/Attempt/Action/Artifact/Evidence model.
-- `docs/06_DESKTOP_UX.md` — Home, Project desktops, card grammar, Activity Center, Timeline.
-- `docs/07_EXPERT_SYSTEM.md` — expert identities, temporary specialists, orchestration rules.
-- `docs/08_SECURITY_AND_PERMISSIONS.md` — capability enforcement, computer-control lease, cloud/privacy rules.
-- `docs/09_MODEL_AND_COMPUTE_RUNTIME.md` — Apple-first local runtime, 32 GB hybrid mode, 256 GB local mode, provider abstraction.
-- `docs/10_VALIDATION_AND_ROADMAP.md` — vertical slice, adversarial acceptance tests, phased implementation.
-- `docs/11_OPEN_ECOSYSTEM.md` — open-source posture, extension boundaries, interoperability.
+Downloads from Hugging Face `mlx-community`, verifies every file hash, and
+marks the model resident under `~/Library/Application Support/AIOS/models/`.
 
-## First milestone
+## Live gates (opt-in)
 
-Do **not** attempt to implement the entire vision in one uncontrolled pass. The first milestone is a production-quality vertical slice that proves the engine contracts:
+```sh
+# Real local MLX generation through a real worker process:
+AIOS_LIVE_MLX=1 swift test --filter liveMLXGenerationInWorker
 
-> Open an existing Swift project → create a Goal → produce a Task Contract → execute a bounded code change in an isolated workspace → run validation → independently review it → show live Activity + Timeline state → recover correctly from a worker crash → preserve a durable audit trail.
+# One bounded Z.ai completion (key from env or Keychain):
+AIOS_LIVE_ZAI=1 AIOS_ZAI_KEY=... swift test --filter liveZaiCompletion
+```
 
-The architecture must still support non-code work from day one, so include one secondary research/artifact scenario in tests.
+Store a provider key without putting it in any command line history you
+share: `AIOS_ZAI_KEY=... swift run ProviderSetup zai`.
 
-## Non-goals for the first milestone
+## Inspect a project journal
 
-- Building a Finder replacement.
-- Building a fake macOS desktop or window manager.
-- A plugin marketplace.
-- A2A federation.
-- Full local image/music/video generation.
-- Universal provider support.
-- Dozens of permanent experts.
-- App Store submission before sandbox/background-process feasibility is proven.
+```sh
+swift run WorkRuntimeApp --journal <directory-containing-<uuid>-journals>
+```
 
-## Licensing direction
+## Honest limitations (as of Phase 2)
 
-The application should target a permissive open-source license (Apache-2.0 is a strong default). Models, runtimes, skills, and cloud connectors retain their own licenses and terms. Do not describe all open-weight models as fully open-source AI.
+- No tool-calling from model brains yet: local/cloud generation produces
+  typed `generatedContent` claims only; real effects still flow through the
+  scripted scenario path and the broker.
+- Z.ai quota windows are advisory — the provider lacks a public usage API;
+  enforcement uses locally tracked response-reported usage.
+- Keychain-stored keys are readable only by processes the user approves
+  (unsigned CLI binaries prompt); the app target will carry proper
+  keychain-access groups.
+- Computer control (Chloe), voice, and media runtimes are future phases;
+  see `docs/10_VALIDATION_AND_ROADMAP.md`.
 
+## License
+
+Apache-2.0 for this repository. Model weights, runtimes, and connectors keep
+their own licenses and terms.
