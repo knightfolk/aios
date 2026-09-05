@@ -5,7 +5,7 @@ grounded "AI computer" rather than a chat client. Users work inside persistent
 Project desktops; underneath is a durable runtime for goals, agents, tools,
 evidence, computer use, voice, media, and long-running execution.
 
-Status: **Phase 0–5 complete** (engine kernel, first vertical slice, hybrid
+Status: **Phase 0–6 complete** (engine kernel, first vertical slice, hybrid
 intelligence). See `docs/superpowers/specs/` and `docs/superpowers/plans/` for
 the design history; `docs/` holds the full architecture packet.
 
@@ -110,7 +110,14 @@ swift run WorkRuntimeApp --journal <directory-containing-<uuid>-journals>
   adapters are injectable; the bundled pair is a declared echo double —
   real local/cloud speech adapters are typed seams, honestly unavailable
   until their runtimes land.
-- Media runtime is a later phase; see `docs/10_VALIDATION_AND_ROADMAP.md`.
+- **Media runtime (Phase 6, Henson)**: render scheduling (one at a time,
+  cancellable), artifact versioning with per-revision seeds and content
+  hashes, and journaled provenance. The builtin renderer produces real
+  local artifacts (gradient PNGs, tone WAVs) explicitly labeled synthetic —
+  model-backed image/music/video adapters are typed seams, honestly
+  unavailable until their runtimes land.
+- Ecosystem integration (MCP, Agent Skills, extension trust) is the final
+  phase; see `docs/10_VALIDATION_AND_ROADMAP.md`.
 
 ## License
 
