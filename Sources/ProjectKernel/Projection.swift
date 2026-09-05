@@ -266,9 +266,52 @@ public enum Projection {
                 return next
             }
             next.goals[p.goalRevisionID]?.blockedReason = p.reason
+
+        case .needsYouResolved(let p):
+            next.needsUser.removeAll { $0.subject == p.subject && $0.question == p.question }
+            next.resolvedNeedsYou.append(ResolvedNeedsYouEntry(
+                subject: p.subject, question: p.question, answer: p.answer, resolvedAt: p.resolvedAt
+            ))
+
+        case .notePromoted(let p):
+            next.promotions.append(PromotionRecord(noteID: p.noteID, target: p.target, summary: p.summary))
+
+        case .inboxItemPromoted(let p):
+            next.promotions.append(PromotionRecord(itemID: p.itemID, target: p.target, summary: p.summary))
+
+        case .branchCreated(let p):
+            next.branches.append(BranchRecord(
+                fromCheckpointID: p.fromCheckpointID,
+                newPlanRevisionID: p.newPlanRevisionID,
+                previousPlanRevisionID: p.previousPlanRevisionID,
+                reason: p.reason
+            ))
+            if next.plans[p.newPlanRevisionID] == nil {
+                let inherited = next.plans[p.previousPlanRevisionID]
+                next.plans[p.newPlanRevisionID] = PlanRecord(
+                    planRevisionID: p.newPlanRevisionID,
+                    goalRevisionID: inherited?.goalRevisionID ?? next.activeGoalRevisionID ?? GoalRevisionID(),
+                    summary: inherited?.summary ?? "branched from checkpoint \(p.fromCheckpointID)",
+                    taskIDs: inherited?.taskIDs ?? [],
+                    previousRevisionID: p.previousPlanRevisionID,
+                    revisionRationale: p.reason
+                )
+            }
+            next.activePlanRevisionID = p.newPlanRevisionID
+
+        case .restoredFromCheckpoint(let p):
+            next.restorations.append(RestorationRecord(checkpointID: p.checkpointID, note: p.note))
         }
 
         return next
+    }
+
+    /// Read-only historical state at a journal position: a pure replay
+    /// prefix (Constitution #22 — scrubbing is inspection, not rollback).
+    public static func state(at sequence: UInt64, of store: JournalStore) throws -> ProjectState {
+        let journal = try JournalReader.readAllEvents(at: store.journalFileURL)
+        let prefix = journal.records.prefix { $0.sequence <= sequence }
+        return replay(records: prefix, projectID: store.projectID)
     }
 
     /// Folds a full event stream from empty state.

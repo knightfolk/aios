@@ -35,6 +35,75 @@ public enum EngineEvent: Codable, Sendable, Hashable {
     case workerRecovered(WorkerRecoveredPayload)
     case goalCompleted(GoalCompletedPayload)
     case goalBlocked(GoalBlockedPayload)
+    case needsYouResolved(NeedsYouResolvedPayload)
+    case notePromoted(NotePromotedPayload)
+    case inboxItemPromoted(InboxItemPromotedPayload)
+    case branchCreated(BranchCreatedPayload)
+    case restoredFromCheckpoint(RestoredFromCheckpointPayload)
+}
+
+public struct NeedsYouResolvedPayload: Codable, Sendable, Hashable {
+    public var subject: String
+    public var question: String
+    public var answer: String
+    public var resolvedAt: Date
+
+    public init(subject: String, question: String, answer: String, resolvedAt: Date = Date()) {
+        self.subject = subject
+        self.question = question
+        self.answer = answer
+        self.resolvedAt = resolvedAt
+    }
+}
+
+public struct NotePromotedPayload: Codable, Sendable, Hashable {
+    public var noteID: String
+    /// GOAL | TASK | TIMELINE_PIN
+    public var target: String
+    public var summary: String
+
+    public init(noteID: String, target: String, summary: String) {
+        self.noteID = noteID
+        self.target = target
+        self.summary = summary
+    }
+}
+
+public struct InboxItemPromotedPayload: Codable, Sendable, Hashable {
+    public var itemID: String
+    /// GOAL | TASK | TIMELINE_PIN | DISCARDED
+    public var target: String
+    public var summary: String
+
+    public init(itemID: String, target: String, summary: String) {
+        self.itemID = itemID
+        self.target = target
+        self.summary = summary
+    }
+}
+
+public struct BranchCreatedPayload: Codable, Sendable, Hashable {
+    public var fromCheckpointID: String
+    public var newPlanRevisionID: PlanRevisionID
+    public var previousPlanRevisionID: PlanRevisionID
+    public var reason: String
+
+    public init(fromCheckpointID: String, newPlanRevisionID: PlanRevisionID, previousPlanRevisionID: PlanRevisionID, reason: String) {
+        self.fromCheckpointID = fromCheckpointID
+        self.newPlanRevisionID = newPlanRevisionID
+        self.previousPlanRevisionID = previousPlanRevisionID
+        self.reason = reason
+    }
+}
+
+public struct RestoredFromCheckpointPayload: Codable, Sendable, Hashable {
+    public var checkpointID: String
+    public var note: String
+
+    public init(checkpointID: String, note: String) {
+        self.checkpointID = checkpointID
+        self.note = note
+    }
 }
 
 public struct GoalCreatedPayload: Codable, Sendable, Hashable {

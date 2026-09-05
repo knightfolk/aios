@@ -188,6 +188,59 @@ public struct NeedsYouEntry: Codable, Sendable, Hashable {
     }
 }
 
+public struct ResolvedNeedsYouEntry: Codable, Sendable, Hashable {
+    public var subject: String
+    public var question: String
+    public var answer: String
+    public var resolvedAt: Date
+
+    public init(subject: String, question: String, answer: String, resolvedAt: Date) {
+        self.subject = subject
+        self.question = question
+        self.answer = answer
+        self.resolvedAt = resolvedAt
+    }
+}
+
+public struct PromotionRecord: Codable, Sendable, Hashable {
+    public var noteID: String?
+    public var itemID: String?
+    /// GOAL | TASK | TIMELINE_PIN | DISCARDED
+    public var target: String
+    public var summary: String
+
+    public init(noteID: String? = nil, itemID: String? = nil, target: String, summary: String) {
+        self.noteID = noteID
+        self.itemID = itemID
+        self.target = target
+        self.summary = summary
+    }
+}
+
+public struct BranchRecord: Codable, Sendable, Hashable {
+    public var fromCheckpointID: String
+    public var newPlanRevisionID: PlanRevisionID
+    public var previousPlanRevisionID: PlanRevisionID
+    public var reason: String
+
+    public init(fromCheckpointID: String, newPlanRevisionID: PlanRevisionID, previousPlanRevisionID: PlanRevisionID, reason: String) {
+        self.fromCheckpointID = fromCheckpointID
+        self.newPlanRevisionID = newPlanRevisionID
+        self.previousPlanRevisionID = previousPlanRevisionID
+        self.reason = reason
+    }
+}
+
+public struct RestorationRecord: Codable, Sendable, Hashable {
+    public var checkpointID: String
+    public var note: String
+
+    public init(checkpointID: String, note: String) {
+        self.checkpointID = checkpointID
+        self.note = note
+    }
+}
+
 /// Full projected state of one project, derived only from journaled events.
 public struct ProjectState: Codable, Sendable, Hashable {
     public var projectID: ProjectID
@@ -201,6 +254,10 @@ public struct ProjectState: Codable, Sendable, Hashable {
     public var evidence: [EvidenceID: Evidence]
     public var actions: [ActionID: ActionEntry]
     public var needsUser: [NeedsYouEntry]
+    public var resolvedNeedsYou: [ResolvedNeedsYouEntry]
+    public var promotions: [PromotionRecord]
+    public var branches: [BranchRecord]
+    public var restorations: [RestorationRecord]
     public var interventions: [String]
     public var checkpoints: [String]
     public var warnings: [String]
@@ -218,6 +275,10 @@ public struct ProjectState: Codable, Sendable, Hashable {
         self.evidence = [:]
         self.actions = [:]
         self.needsUser = []
+        self.resolvedNeedsYou = []
+        self.promotions = []
+        self.branches = []
+        self.restorations = []
         self.interventions = []
         self.checkpoints = []
         self.warnings = []
