@@ -39,7 +39,7 @@ let package = Package(
         .target(name: "CloudRuntime", dependencies: ["AIOSCore", "ModelRuntime", "SecurityKernel"], resources: [
             .copy("Resources/zai-profile.json"),
         ]),
-        .target(name: "EvaluationEngine", dependencies: ["AIOSCore", "EventJournal"]),
+        .target(name: "EvaluationEngine", dependencies: ["AIOSCore", "EventJournal", "ModelRuntime"]),
 
         // Executables — workers and the app run out of the UI/host process.
         .executableTarget(name: "WorkRuntimeApp", dependencies: ["AIOSCore", "EventJournal", "DesktopShell"]),
