@@ -27,7 +27,7 @@ func liveZaiCompletion() async throws {
             ChatMessage(role: .system, content: "Answer with a single word."),
             ChatMessage(role: .user, content: "What is the capital of France?"),
         ],
-        maxTokens: 16,
+        maxTokens: 256, // GLM reasoning tokens consume part of the budget
         temperature: 0,
         harnessProfileID: "default-v1"
     ))

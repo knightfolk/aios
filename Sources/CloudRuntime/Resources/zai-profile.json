@@ -4,12 +4,24 @@
   "endpoint": "https://api.z.ai/api/paas/v4/",
   "protocolKind": "OPENAI_COMPATIBLE",
   "models": [
-    {"modelID": "glm-4.6", "modalities": ["text"], "contextWindowTokens": 128000},
-    {"modelID": "glm-4.5-air", "modalities": ["text"], "contextWindowTokens": 128000}
+    {
+      "modelID": "glm-4.5-flash",
+      "modalities": [
+        "text"
+      ],
+      "contextWindowTokens": 128000
+    },
+    {
+      "modelID": "glm-4.6",
+      "modalities": [
+        "text"
+      ],
+      "contextWindowTokens": 128000
+    }
   ],
   "billingMode": "PAY_AS_YOU_GO",
   "quotaWindows": [],
   "rateLimitRPM": 60,
-  "privacyNotes": "Z.ai API terms apply; keys are stored only in the local Keychain. Quota windows are advisory: the provider lacks a public usage API, so enforcement relies on locally tracked response-reported usage.",
+  "privacyNotes": "Z.ai API terms apply; keys are stored only in the local Keychain. glm-4.5-flash is the free-tier default; glm-4.6 is paid and must be chosen explicitly (never silently escalated to). Reasoning models emit reasoning_content deltas which the client deliberately excludes from answer text. Quota windows are advisory: the provider lacks a public usage API, so enforcement relies on locally tracked response-reported usage.",
   "lastVerifiedAt": 731585373
 }

@@ -41,10 +41,11 @@ if store.isResident(manifest) {
 }
 
 let semaphore = DispatchSemaphore(value: 0)
-Task {
+// detached: top-level main must stay free for the concurrent pool to run.
+Task.detached {
     do {
         try await store.fetch(manifest) { fraction in
-            print(String(format: "  progress: %.0f%%", fraction * 100))
+            try? FileHandle.standardError.write(contentsOf: Data(String(format: "  progress: %.0f%%\n", fraction * 100).utf8))
         }
         print("Verified: \(store.isResident(manifest) ? "resident" : "FAILED")")
         semaphore.signal()
@@ -53,5 +54,5 @@ Task {
         semaphore.signal()
     }
 }
-let result = semaphore.wait(timeout: .now() + 3600)
+let result = semaphore.wait(timeout: .now() + 7200)
 exit(result == .success && store.isResident(manifest) ? 0 : 1)

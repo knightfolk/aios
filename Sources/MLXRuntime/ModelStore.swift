@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import CommonCrypto
 import AIOSCore
 import ModelRuntime
 
@@ -25,81 +26,16 @@ public enum Hashing {
         let handle = try FileHandle(forReadingFrom: url)
         defer { try? handle.close() }
 
-        var context = SHA1State()
-        context.update(Data("blob \(size)\0".utf8))
+        var context = CC_SHA1_CTX()
+        CC_SHA1_Init(&context)
+        var header = Data("blob \(size)\0".utf8)
+        _ = header.withUnsafeBytes { CC_SHA1_Update(&context, $0.baseAddress, CC_LONG($0.count)) }
         while let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty {
-            context.update(chunk)
+            _ = chunk.withUnsafeBytes { CC_SHA1_Update(&context, $0.baseAddress, CC_LONG($0.count)) }
         }
-        return context.finalizeHex()
-    }
-}
-
-/// Minimal pure-Swift SHA-1 (CryptoKit does not provide it). Used only to
-/// verify non-LFS model files against git blob oids.
-struct SHA1State {
-    private var h: (UInt32, UInt32, UInt32, UInt32, UInt32) = (0x67452301, 0xEFCDAB89, 0x98BADCFE, 0x10325476, 0xC3D2E1F0)
-    private var buffer = Data()
-    private var length: UInt64 = 0
-
-    mutating func update(_ data: Data) {
-        buffer.append(data)
-        length &+= UInt64(data.count)
-        let blocks = buffer.count / 64
-        if blocks > 0 {
-            for index in 0..<blocks {
-                process(Array(buffer[index * 64..<(index * 64 + 64)]))
-            }
-            buffer.removeFirst(blocks * 64)
-        }
-    }
-
-    mutating func finalizeHex() -> String {
-        let bitLength = length &* 8
-        var padding = Data([0x80])
-        while (buffer.count + padding.count) % 64 != 56 {
-            padding.append(0)
-        }
-        var trailer = Data()
-        for shift in stride(from: 56, through: 0, by: -8) {
-            trailer.append(UInt8((bitLength >> UInt64(shift)) & 0xFF))
-        }
-        update(padding)
-        update(trailer)
-        // After final update the buffer is exactly one processed block.
-        let digest = [h.0, h.1, h.2, h.3, h.4]
-        return digest.map { String(format: "%08x", $0) }.joined()
-    }
-
-    private mutating func process(_ block: [UInt8]) {
-        var w = [UInt32](repeating: 0, count: 80)
-        for index in 0..<16 {
-            let base = index * 4
-            w[index] = (UInt32(block[base]) << 24) | (UInt32(block[base + 1]) << 16)
-                | (UInt32(block[base + 2]) << 8) | UInt32(block[base + 3])
-        }
-        for index in 16..<80 {
-            let value = w[index - 3] ^ w[index - 8] ^ w[index - 14] ^ w[index - 16]
-            w[index] = (value << 1) | (value >> 31)
-        }
-
-        var (a, b, c, d, e) = h
-        for index in 0..<80 {
-            let f: UInt32
-            let k: UInt32
-            switch index {
-            case 0..<20: f = (b & c) | (~b & d); k = 0x5A827999
-            case 20..<40: f = b ^ c ^ d; k = 0x6ED9EBA1
-            case 40..<60: f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC
-            default: f = b ^ c ^ d; k = 0xCA62C1D6
-            }
-            let temp = ((a << 5) | (a >> 27)) &+ f &+ e &+ k &+ w[index]
-            e = d
-            d = c
-            c = (b << 30) | (b >> 2)
-            b = a
-            a = temp
-        }
-        h = (h.0 &+ a, h.1 &+ b, h.2 &+ c, h.3 &+ d, h.4 &+ e)
+        var digest = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+        CC_SHA1_Final(&digest, &context)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
 
