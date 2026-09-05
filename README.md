@@ -135,6 +135,16 @@ swift run WorkRuntimeApp --journal <directory-containing-<uuid>-journals>
   tracked in `docs/10_VALIDATION_AND_ROADMAP.md` and the README
   limitations above.
 
+## Release engineering
+
+- CI: `.github/workflows/ci.yml` builds, prepares the MLX metallib, runs the
+  offline suite, and smoke-launches the shell on every push/PR.
+- Notarization and signed distribution require an Apple Developer account
+  and certificates that are not part of this repository; the direct-build
+  channel remains the release path until those exist.
+- Publishing: the repository is prepared for a public GitHub remote;
+  credentials/secrets never live in the tree.
+
 ## License
 
 Apache-2.0 for this repository. Model weights, runtimes, and connectors keep

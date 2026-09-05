@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve dependencies
+        run: swift package resolve
+
+      - name: Build
+        run: swift build
+
+      - name: Prepare MLX Metal kernels
+        run: ./tools/prepare-mlx-metallib.sh
+
+      - name: Test (offline suite; live gates skip without env)
+        run: swift test
+
+      - name: Smoke-launch the shell
+        run: |
+          .build/debug/WorkRuntimeApp &
+          APP_PID=$!
+          sleep 5
+          if kill -0 $APP_PID 2>/dev/null; then
+            echo "WorkRuntimeApp launched and stayed alive"
+            kill $APP_PID
+          else
+            echo "WorkRuntimeApp exited early" >&2
+            exit 1
+          fi
