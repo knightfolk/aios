@@ -1,6 +1,7 @@
 import Foundation
 import AIOSCore
 import EventJournal
+import ModelRuntime
 
 /// Mostly deterministic, event-driven execution monitor (docs 07). It never
 /// polls an expensive orchestrator; it consumes action results and emits
@@ -91,6 +92,30 @@ public actor Supervisor {
                 blocking: false
             )
             return .refuseSpend(reason: "projected spend $\(projectedAdditionUSD) exceeds budget $\(configuration.maxSpendUSD)")
+        }
+        return .proceed
+    }
+
+    /// Provider quota enforcement: subscription allowance never silently
+    /// overflows into paid usage — overflow needs the provider to allow it
+    /// AND the caller to have explicitly authorized paid usage.
+    public func checkUsage(
+        provider: ProviderProfile,
+        projectedTokens: Int,
+        usedTokensInWindow: Int,
+        allowPaid: Bool
+    ) async -> Directive {
+        let remaining = provider.tokensRemaining(usedTokensInWindow: usedTokensInWindow)
+        if projectedTokens > remaining {
+            if provider.allowsOverflow && allowPaid {
+                return .proceed
+            }
+            await escalate(
+                subject: "quota exhausted",
+                question: "Provider \(provider.providerID) is over its quota window (\(usedTokensInWindow) used, \(projectedTokens) projected, \(remaining) remaining). Paid overflow is \(provider.allowsOverflow && allowPaid ? "authorized" : "not authorized").",
+                blocking: false
+            )
+            return .refuseSpend(reason: "quota exhausted on \(provider.providerID): \(projectedTokens) projected, \(remaining) remaining in window")
         }
         return .proceed
     }

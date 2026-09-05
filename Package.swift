@@ -15,7 +15,7 @@ let package = Package(
         .target(name: "ProjectKernel", dependencies: ["AIOSCore", "EventJournal"]),
         .target(name: "Scheduler", dependencies: ["AIOSCore"]),
         .target(name: "Router", dependencies: ["AIOSCore", "ModelRuntime"]),
-        .target(name: "Supervisor", dependencies: ["AIOSCore", "EventJournal"]),
+        .target(name: "Supervisor", dependencies: ["AIOSCore", "EventJournal", "ModelRuntime"]),
         .target(name: "CapabilityBroker", dependencies: ["AIOSCore", "EventJournal", "SecurityKernel", "ExecutionFabric"]),
         .target(name: "SecurityKernel", dependencies: ["AIOSCore"]),
         .target(name: "ExecutionFabric", dependencies: ["AIOSCore", "EventJournal", "ModelRuntime"]),
