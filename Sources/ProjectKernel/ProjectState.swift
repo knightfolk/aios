@@ -265,6 +265,8 @@ public struct ProjectState: Codable, Sendable, Hashable {
     public var artifacts: [ArtifactID: ArtifactRecord]
     public var evidence: [EvidenceID: Evidence]
     public var actions: [ActionID: ActionEntry]
+    /// Journal insertion order of actions (dictionaries are unordered).
+    public var actionOrder: [ActionID]
     public var needsUser: [NeedsYouEntry]
     public var resolvedNeedsYou: [ResolvedNeedsYouEntry]
     public var promotions: [PromotionRecord]
@@ -287,6 +289,7 @@ public struct ProjectState: Codable, Sendable, Hashable {
         self.artifacts = [:]
         self.evidence = [:]
         self.actions = [:]
+        self.actionOrder = []
         self.needsUser = []
         self.resolvedNeedsYou = []
         self.promotions = []

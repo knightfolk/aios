@@ -325,6 +325,7 @@ struct DepthPanels: View {
             CheckpointsPanel(model: model, state: rendered)
             ExpertCard(model: model, role: .linus)
             ExpertCard(model: model, role: .sherlock)
+            ChloeDeckView(model: model)
         }
     }
 }

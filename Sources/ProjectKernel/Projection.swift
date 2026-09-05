@@ -128,6 +128,7 @@ public enum Projection {
 
         case .actionRequested(let p):
             next.actions[p.request.actionID] = ActionEntry(request: p.request)
+            next.actionOrder.append(p.request.actionID)
 
         case .actionAuthorized(let p):
             guard next.actions[p.actionID] != nil else {
