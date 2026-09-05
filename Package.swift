@@ -7,6 +7,7 @@ let package = Package(
     dependencies: [
         // Pinned; the only dependency that links MLX.
         .package(url: "https://github.com/ml-explore/mlx-swift-lm", from: "3.31.4"),
+        .package(url: "https://github.com/huggingface/swift-transformers", from: "1.3.4"),
     ],
     targets: [
         // Libraries — authoritative state, security, execution stay in separate modules.
@@ -32,6 +33,8 @@ let package = Package(
         .target(name: "MLXRuntime", dependencies: [
             "AIOSCore", "ModelRuntime",
             .product(name: "MLXLLM", package: "mlx-swift-lm"),
+            .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
+            .product(name: "Tokenizers", package: "swift-transformers"),
         ]),
         .target(name: "CloudRuntime", dependencies: ["AIOSCore", "ModelRuntime", "SecurityKernel"], resources: [
             .copy("Resources/zai-profile.json"),

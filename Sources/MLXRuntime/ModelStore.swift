@@ -182,6 +182,13 @@ public struct ModelStore: Sendable {
         guard isResident(manifest) else {
             throw StoreError.verificationFailed(filename: "<post-fetch>")
         }
+
+        // Persist the manifest alongside the weights so workers can report
+        // provenance without re-reading the registry.
+        let manifestCopy = directory(for: manifest).appendingPathComponent("aios-manifest.json")
+        if let data = try? JSONEncoder().encode(manifest) {
+            try? data.write(to: manifestCopy, options: .atomic)
+        }
     }
 
     static func fileMatches(_ file: ModelFile, at url: URL) -> Bool {

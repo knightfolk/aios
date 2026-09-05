@@ -105,7 +105,7 @@ public struct StreamFramer {
 /// Blocking stdio helper for worker processes. Writes are serialized with a
 /// lock because the heartbeat thread and the scenario loop write
 /// concurrently.
-public struct WorkerPipe {
+public struct WorkerPipe: @unchecked Sendable {
     private let input: FileHandle
     private let output: FileHandle
     private let writeLock = NSLock()
