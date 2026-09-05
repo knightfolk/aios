@@ -38,7 +38,16 @@ public actor CapabilityBroker {
     // MARK: - Prepare / Validate / Authorize
 
     public func prepare(_ request: ActionRequest, policy: SecurityPolicy) async -> PreparedAction {
-        try? await journal.append(.actionRequested(.init(request: request)))
+        do {
+            try await journal.append(.actionRequested(.init(request: request)))
+        } catch {
+            // A transition that cannot be journaled must not proceed.
+            return PreparedAction(request: request, policy: policy, rejection: ActionResult(
+                actionID: request.actionID, outcome: .rejected,
+                startedAt: Date(), endedAt: Date(),
+                failureDetails: "journal append failed; refusing to proceed unrecorded"
+            ))
+        }
 
         func reject(_ reason: String) -> PreparedAction {
             PreparedAction(request: request, policy: policy, rejection: ActionResult(

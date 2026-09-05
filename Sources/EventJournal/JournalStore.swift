@@ -56,6 +56,15 @@ enum FrameCodec {
 /// the sequence stays strictly monotonic. The store never rewrites or removes
 /// written bytes; recovery from a torn tail is the reader's job.
 public actor JournalStore {
+    /// Count of failed append attempts since open; zero in healthy
+    /// operation. Surfaced so UI/Health can report degraded journaling.
+    public private(set) var appendFailureCount: Int = 0
+
+    /// Test seam: increment the failure counter without a real I/O error.
+    public func noteAppendFailure() {
+        appendFailureCount += 1
+    }
+
     /// Production default root: `~/Library/Application Support/AIOS/projects`.
     /// Tests inject their own root directory.
     public static func defaultRootDirectory() throws -> URL {
@@ -104,6 +113,15 @@ public actor JournalStore {
     /// assigned atomically with the write under actor isolation.
     @discardableResult
     public func append(_ event: EngineEvent) throws -> EventRecord {
+        do {
+            return try appendNow(event)
+        } catch {
+            appendFailureCount += 1
+            throw error
+        }
+    }
+
+    private func appendNow(_ event: EngineEvent) throws -> EventRecord {
         let record = EventRecord(
             sequence: nextSequence,
             recordedAt: Date(),

@@ -277,6 +277,8 @@ public struct ProjectState: Codable, Sendable, Hashable {
     public var checkpoints: [String]
     public var warnings: [String]
     public var lastSequence: UInt64
+    /// Failed journal appends observed by the store (0 = healthy).
+    public var journalWriteFailures: Int
 
     public init(projectID: ProjectID) {
         self.projectID = projectID
@@ -300,5 +302,6 @@ public struct ProjectState: Codable, Sendable, Hashable {
         self.checkpoints = []
         self.warnings = []
         self.lastSequence = 0
+        self.journalWriteFailures = 0
     }
 }

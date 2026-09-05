@@ -59,9 +59,9 @@ public actor ComputerControlLease: LeaseAuthorizing {
 
     public func acquire(owner: String, purpose: String, allowedActions: [ChloeAction], ttlSeconds: TimeInterval) async throws -> LeaseGrant {
         expireIfNeeded(reason: "ttl expired")
-        if active != nil {
-            try? await journal.append(.leaseEvent(.init(granted: false, owner: owner, reason: "denied: conflicting lease held by \(active!.owner)")))
-            return LeaseGrant(granted: false, owner: active?.owner)
+        if let current = active {
+            try await journal.append(.leaseEvent(.init(granted: false, owner: owner, reason: "denied: conflicting lease held by \(current.owner)")))
+            return LeaseGrant(granted: false, owner: current.owner)
         }
         active = ActiveLease(
             owner: owner,
@@ -70,14 +70,14 @@ public actor ComputerControlLease: LeaseAuthorizing {
             expiresAt: Date().addingTimeInterval(ttlSeconds),
             invalidated: false
         )
-        try? await journal.append(.leaseEvent(.init(granted: true, owner: owner, reason: "granted: \(purpose)")))
+        try await journal.append(.leaseEvent(.init(granted: true, owner: owner, reason: "granted: \(purpose)")))
         return LeaseGrant(granted: true, owner: owner)
     }
 
     public func release(reason: String) async throws {
         guard let current = active else { return }
         active = nil
-        try? await journal.append(.leaseEvent(.init(granted: false, owner: current.owner, reason: "released: \(reason)")))
+        try await journal.append(.leaseEvent(.init(granted: false, owner: current.owner, reason: "released: \(reason)")))
     }
 
     public func authorize(owner: String, action: ChloeAction) async throws -> LeaseAuthorization {
@@ -96,14 +96,14 @@ public actor ComputerControlLease: LeaseAuthorizing {
         guard !current.invalidated else { return true }
         current.invalidated = true
         active = current
-        try? await journal.append(.leaseEvent(.init(granted: false, owner: current.owner, reason: "invalidated: user interaction outranks automation")))
+        try await journal.append(.leaseEvent(.init(granted: false, owner: current.owner, reason: "invalidated: user interaction outranks automation")))
         return true
     }
 
     public func emergencyRelease(reason: String) async throws {
         guard let current = active else { return }
         active = nil
-        try? await journal.append(.leaseEvent(.init(granted: false, owner: current.owner, reason: "released: \(reason)")))
+        try await journal.append(.leaseEvent(.init(granted: false, owner: current.owner, reason: "released: \(reason)")))
     }
 
     private func expireIfNeeded(reason: String) {
