@@ -70,6 +70,13 @@ the design history; `docs/` holds the full architecture packet.
   unmistakable from now. Expert Cards hold real conversations over live
   worker sessions (resident model when available, echo double otherwise —
   always labeled).
+- **OS layer**: native macOS menu bar (File/View/Desktop/Control — every
+  command routes through the tested CommandRouter), a menu-bar status item
+  with live needs-you/activity counts and a deterministic Emergency Stop
+  entry, per-project desktops that restore their full session (card order,
+  pins, scrub position, layout) on switch, drag-and-drop card arrangement,
+  right-click context menus (copy/pin/card-size), and window autosave with
+  proper resizability.
 - **Minimal truthful SwiftUI shell**: cards from projections, Past/Now/Future/
   Gaps timeline, deterministic Emergency Stop.
 - **Desktop depth**: resolvable Needs You queue, evidence-based Project
