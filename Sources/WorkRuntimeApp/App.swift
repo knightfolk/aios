@@ -32,18 +32,27 @@ struct WorkRuntimeApp: App {
     var body: some Scene {
         WindowGroup("AI Work Runtime") {
             RootView(options: Options(arguments: Array(CommandLine.arguments.dropFirst())))
+                .frame(minWidth: 960, minHeight: 600)
         }
+        .windowStyle(.automatic)
     }
 }
 
 struct RootView: View {
     @State private var model: AppModel?
+    @State private var projects: [DiscoveredProject] = []
+    @State private var isFullScreen = false
     let options: Options
 
     var body: some View {
         Group {
             if let model {
-                HomeView(model: model)
+                VStack(spacing: 0) {
+                    if projects.count > 1 {
+                        projectSwitcher.padding(8).background(.bar)
+                    }
+                    HomeView(model: model)
+                }
             } else {
                 VStack(spacing: 8) {
                     Text("No project loaded")
@@ -55,22 +64,52 @@ struct RootView: View {
                 .frame(minWidth: 520, minHeight: 320)
             }
         }
+        .toolbar {
+            Toggle(isOn: $isFullScreen) {
+                Label("Full Screen", systemImage: "arrow.up.left.and.arrow.down.right.square")
+            }
+            .toggleStyle(.button)
+            .onChange(of: isFullScreen) { enabled in
+                if enabled {
+                    NSApp?.windows.first?.toggleFullScreen(nil)
+                } else if let window = NSApp?.windows.first, window.styleMask.contains(.fullScreen) {
+                    window.toggleFullScreen(nil)
+                }
+            }
+        }
         .task { await loadIfNeeded() }
+    }
+
+    private var projectSwitcher: some View {
+        HStack {
+            Label("Projects", systemImage: "square.grid.2x2").font(.headline)
+            ForEach(projects) { project in
+                Button(String(project.projectID.rawValue.uuidString.prefix(8))) {
+                    Task { await select(project) }
+                }
+                .buttonStyle(.bordered)
+                .disabled(project.projectID == model?.projectID)
+            }
+            Spacer()
+        }
+    }
+
+    private func select(_ project: DiscoveredProject) async {
+        let root = project.journalURL
+            .deletingLastPathComponent() // journal/
+            .deletingLastPathComponent() // <uuid>/
+        guard let store = try? JournalStore(projectID: project.projectID, rootDirectory: root) else { return }
+        let loaded = AppModel(store: store)
+        await loaded.refresh()
+        model = loaded
     }
 
     private func loadIfNeeded() async {
         guard model == nil, let rootPath = options.journalRoot else { return }
         let root = URL(fileURLWithPath: rootPath, isDirectory: true)
-        guard let projectDir = try? FileManager.default.contentsOfDirectory(
-            at: root, includingPropertiesForKeys: nil
-        ).first,
-            let projectUUID = UUID(uuidString: projectDir.lastPathComponent),
-            let store = try? JournalStore(
-                projectID: ProjectID(rawValue: projectUUID),
-                rootDirectory: root
-            ) else { return }
-        let loaded = AppModel(store: store)
-        await loaded.refresh()
-        model = loaded
+        let discovered = ProjectDiscovery.projects(under: root)
+        projects = discovered
+        guard let first = discovered.first else { return }
+        await select(first)
     }
 }
